@@ -1,40 +1,45 @@
-"""MCP Chain - A composable middleware framework for MCP servers."""
+"""MCP Chain - A composable middleware framework for MCP servers.
 
-# Import all types and protocols
+A clean dict-based architecture for building MCP server middleware chains.
+"""
+
+# Import core types and protocols
 from .types import (
     MCPServer,
-    MetadataTransformer,
-    RequestResponseTransformer,
-    RawMetadataTransformer,
-    RawRequestResponseTransformer,
+    DictMCPServer,
+    DictMetadataTransformer,
+    DictRequestResponseTransformer,
 )
 
 # Import implementations
 from .middleware import MiddlewareMCPServer
 from .builder import MCPChainBuilder
 from .external import ExternalMCPServer
+from .front import FrontMCPServer
 from .config import MCPServerConfig
 
 
 # Factory function
-def mcp_chain() -> MCPChainBuilder:
+def mcp_chain():
     """Create a new MCP chain starting point."""
-    return MCPChainBuilder()
+    from .front import FrontMCPServer
+    builder = MCPChainBuilder()
+    return FrontMCPServer(builder)
 
 
 # Export public API
 __all__ = [
-    # Types and protocols
+    # Core types and protocols
     "MCPServer",
-    "MetadataTransformer", 
-    "RequestResponseTransformer",
-    "RawMetadataTransformer",
-    "RawRequestResponseTransformer",
+    "DictMCPServer", 
+    "DictMetadataTransformer",
+    "DictRequestResponseTransformer",
     
-    # Classes
+    # Core classes
+    "FrontMCPServer",
     "MiddlewareMCPServer",
-    "MCPChainBuilder",
     "ExternalMCPServer",
+    "MCPChainBuilder",
     "MCPServerConfig",
     
     # Factory function

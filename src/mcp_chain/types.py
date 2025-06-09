@@ -4,7 +4,7 @@ from typing import Protocol, Callable, Any, Dict, Union
 
 
 class MCPServer(Protocol):
-    """Protocol defining the interface for MCP servers."""
+    """Protocol defining the interface for MCP servers (JSON-based for external clients)."""
     
     def get_metadata(self) -> str:
         """Returns server metadata as JSON-RPC response."""
@@ -15,16 +15,18 @@ class MCPServer(Protocol):
         ...
 
 
-# Porcelain transformer types (work with Dict objects, but still receive MCPServer)
-MetadataTransformer = Callable[[MCPServer, Dict[str, Any]], Dict[str, Any]]
-RequestResponseTransformer = Callable[[MCPServer, Dict[str, Any]], Dict[str, Any]]
+class DictMCPServer(Protocol):
+    """Protocol defining the interface for dict-based MCP servers (internal middleware)."""
+    
+    def get_metadata(self) -> Dict[str, Any]:
+        """Returns server metadata as dict."""
+        ...
+    
+    def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Handles dict request and returns dict response."""
+        ...
 
-# Raw transformer types (work with JSON strings)
-# Note: The metadata argument can be used to communicate with downstream middleware,
-# even though get_metadata() doesn't have arguments in the MCP protocol
-RawMetadataTransformer = Callable[[MCPServer, str], str]
-RawRequestResponseTransformer = Callable[[MCPServer, str], str]
 
-# Union types for transformer detection
-AnyMetadataTransformer = Union[MetadataTransformer, RawMetadataTransformer]
-AnyRequestResponseTransformer = Union[RequestResponseTransformer, RawRequestResponseTransformer]
+# Dict-based transformer types (clean architecture)
+DictMetadataTransformer = Callable[[DictMCPServer, Dict[str, Any]], Dict[str, Any]]
+DictRequestResponseTransformer = Callable[[DictMCPServer, Dict[str, Any]], Dict[str, Any]]

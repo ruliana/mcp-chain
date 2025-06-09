@@ -57,7 +57,7 @@ class ExternalMCPServer:
         return json.loads(line.strip())
     
     def get_metadata(self):
-        """Returns server metadata as JSON-RPC response."""
+        """Returns server metadata as dict."""
         if not self._process:
             self.connect()
         
@@ -83,28 +83,22 @@ class ExternalMCPServer:
             "server_name": self.name
         }
         
-        return json.dumps(metadata)
+        return metadata
     
     def handle_request(self, request):
-        """Handles JSON-RPC request and returns JSON-RPC response."""
+        """Handles dict request and returns dict response."""
         if not self._process:
             self.connect()
         
-        try:
-            request_data = json.loads(request)
-        except json.JSONDecodeError:
-            error_response = {
-                "jsonrpc": "2.0",
-                "id": None,
-                "error": {"code": -32700, "message": "Parse error"}
-            }
-            return json.dumps(error_response)
+        # request is already a dict
+        request_data = request
         
-        # Forward request to external server
+        # Forward request to external server (external server expects JSON)
         self._send_request(request_data)
         response = self._read_response()
         
-        return json.dumps(response)
+        # Return response as dict
+        return response
     
     def disconnect(self):
         """Disconnect from the external MCP server."""

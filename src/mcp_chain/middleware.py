@@ -1,46 +1,39 @@
 """Middleware MCP server implementation for MCP Chain."""
 
-import json
-import inspect
-from typing import get_type_hints, Callable, Any, Dict
-from .types import (
-    RawMetadataTransformer, 
-    RawRequestResponseTransformer,
-    MetadataTransformer,
-    RequestResponseTransformer,
-    MCPServer
-)
-from .builder import MCPChainBuilder
+from typing import Callable, Any, Dict
+from .types import DictMCPServer, DictMetadataTransformer, DictRequestResponseTransformer
 
 
 class MiddlewareMCPServer:
-    """An MCP Server that can chain other servers."""
+    """An MCP Server that works with dict-based transformers and can chain other dict-based servers."""
     
     def __init__(self, 
-                 downstream_server=None,
-                 raw_metadata_transformer: RawMetadataTransformer = lambda next_mcp, x: next_mcp.get_metadata(),
-                 raw_request_transformer: RawRequestResponseTransformer = lambda next_mcp, req: next_mcp.handle_request(req)):
+                 downstream_server: DictMCPServer,
+                 metadata_transformer: DictMetadataTransformer = None,
+                 request_transformer: DictRequestResponseTransformer = None):
         self._downstream = downstream_server
-        self._raw_metadata_transformer = raw_metadata_transformer
-        self._raw_request_transformer = raw_request_transformer
+        self._metadata_transformer = metadata_transformer or (lambda next_server, metadata_dict: next_server.get_metadata())
+        self._request_transformer = request_transformer or (lambda next_server, request_dict: next_server.handle_request(request_dict))
     
-    def get_metadata(self) -> str:
-        if self._downstream is None:
-            raise ValueError("No downstream server configured")
-        # Pass the next_mcp and empty metadata - transformer decides whether to call next_mcp
-        return self._raw_metadata_transformer(self._downstream, "")
-    
-    def handle_request(self, request: str) -> str:
+    def get_metadata(self) -> Dict[str, Any]:
+        """Returns server metadata as dict."""
         if self._downstream is None:
             raise ValueError("No downstream server configured")
         
-        # Pass the next_mcp and request - transformer decides whether to call next_mcp
-        return self._raw_request_transformer(self._downstream, request)
+        # Call metadata transformer with empty dict (metadata transformers don't use the metadata_dict parameter)
+        return self._metadata_transformer(self._downstream, {})
+    
+    def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Handles dict request and returns dict response."""
+        if self._downstream is None:
+            raise ValueError("No downstream server configured")
+        
+        # Call request transformer with the request dict
+        return self._request_transformer(self._downstream, request)
     
 
     def then(self, *args):
-        """Delegate to child's then() method and wrap the result."""
-        
+        """Chain another transformer or server."""
         if self._downstream is None:
             raise ValueError("No downstream server configured")
         
@@ -49,12 +42,12 @@ class MiddlewareMCPServer:
             # Delegate to child's then method
             child_result = self._downstream.then(*args)
             
-            # Always create a new MiddlewareMCPServer that's a copy of ourselves
+            # Create a new MiddlewareMCPServer that's a copy of ourselves
             # but with the child_result as the new downstream
             return MiddlewareMCPServer(
                 downstream_server=child_result,
-                raw_metadata_transformer=self._raw_metadata_transformer,
-                raw_request_transformer=self._raw_request_transformer
+                metadata_transformer=self._metadata_transformer,
+                request_transformer=self._request_transformer
             )
         else:
             # Downstream doesn't have `then` method - this should be an error

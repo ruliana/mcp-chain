@@ -2,458 +2,304 @@
 
 ## Vision
 
-MCP Chain provides a **middleware MCP server** architecture that acts as a transparent proxy between MCP clients and downstream MCP servers, while being itself a fully compliant MCP server.
+MCP Chain provides a **clean dict-based middleware architecture** for MCP servers that acts as a transparent proxy between MCP clients and downstream MCP servers, while being itself a fully compliant MCP server.
 
-## Recent Major Changes (v2.0 Architecture)
+## Current Architecture (v3.0 - Clean Dict-Based)
 
-### ✅ **Completed Refactoring**
+### ✅ **Completed Clean Architecture**
 
-1. **Renamed DummyMCPServer → MCPChainBuilder** - Clear builder pattern separation
-2. **Two-Phase Architecture** - Clean separation between chain building and runtime execution  
-3. **Smart Argument Detection** - MCPChainBuilder handles transformer vs server detection
-4. **Delegating MiddlewareMCPServer** - Simplified delegation pattern with error handling
-5. **No Backward Compatibility** - Clean architecture without legacy cruft
+1. **Eliminated Raw Transformers** - Removed all JSON string-based transformer complexity
+2. **Pure Dict-Based Pipeline** - All internal processing uses Python dictionaries
+3. **Clean Boundary Separation** - JSON conversion only at client and external server boundaries
+4. **Type-Safe Design** - Full type annotations with clear protocols
+5. **No Backward Compatibility** - Clean, simple architecture without legacy cruft
 
-### 🏗️ **Key Architectural Changes**
+### 🏗️ **Architecture Overview**
 
-- **mcp_chain()** now returns **MCPChainBuilder** (not MiddlewareMCPServer)
-- **MCPChainBuilder** exists only during chain construction and gets completely replaced
-- **MiddlewareMCPServer.then()** now just delegates to child and wraps result
-- **Error handling** when trying to chain on servers without `then` method
-- **Execution order** is now first-added-transformer-outermost (not last-added-outermost)
+```
+Client (JSON) → FrontMCPServer → MiddlewareMCPServer → MiddlewareMCPServer → ExternalMCPServer → Real MCP Server
+             ↑                ↑                    ↑                    ↑                ↓
+         JSON ↔ Dict      Dict Pipeline       Dict Pipeline       Dict ↔ JSON     JSON Protocol
+```
 
 ## Design Philosophy
 
 ### Core Principles
 
-1. **Transparent Proxy** - Each middleware appears as a standard MCP server to clients
-2. **Functional Composition** - Middleware can be composed using a clean chaining API
-3. **Request/Response Transformation** - Modify MCP messages in both directions
-4. **Type Safety** - Full type annotations for better developer experience
-5. **Test-Driven** - Built using strict TDD methodology
-6. **Builder Pattern** - Clean separation between chain building and runtime execution
+1. **Clean Boundaries** - JSON conversion only at system edges (FrontMCPServer, ExternalMCPServer)
+2. **Dict-Based Processing** - All middleware works with Python dictionaries
+3. **Transparent Proxy** - Each middleware appears as a standard MCP server to clients
+4. **Functional Composition** - Middleware can be composed using a clean chaining API
+5. **Type Safety** - Full type annotations for better developer experience
+6. **Test-Driven** - Built using strict TDD methodology
 
-### Architecture Overview
+### Architecture Components
 
+#### 1. FrontMCPServer (Client Interface)
+- **Purpose**: Provides JSON interface to external MCP clients
+- **Responsibility**: JSON ↔ Dict conversion for client communication
+- **Interface**: Implements `MCPServer` protocol (JSON-based)
+- **Downstream**: Works with `DictMCPServer` protocol (dict-based)
+
+```python
+class FrontMCPServer:
+    def get_metadata(self) -> str:  # JSON for client
+        metadata_dict = self._downstream.get_metadata()  # Dict from internal
+        return json.dumps(metadata_dict)
+    
+    def handle_request(self, request: str) -> str:  # JSON for client
+        request_dict = json.loads(request)
+        response_dict = self._downstream.handle_request(request_dict)  # Dict internally
+        return json.dumps(response_dict)
 ```
-Client → MCPChainBuilder → MiddlewareMCPServer → MiddlewareMCPServer → downstream_server
-                       ↑                     ↑                     ↓
-                       ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← response ← ← ← ←
+
+#### 2. MiddlewareMCPServer (Dict-Based Middleware)
+- **Purpose**: Applies transformations to requests and responses
+- **Responsibility**: Dict → Dict transformations using porcelain transformers
+- **Interface**: Implements `DictMCPServer` protocol
+- **Transformers**: Uses `DictMetadataTransformer` and `DictRequestResponseTransformer`
+
+```python
+class MiddlewareMCPServer:
+    def get_metadata(self) -> Dict[str, Any]:  # Dict-based
+        return self._metadata_transformer(self._downstream, {})
+    
+    def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:  # Dict-based
+        return self._request_transformer(self._downstream, request)
 ```
 
-MCP Chain uses a **two-phase architecture**:
+#### 3. MCPChainBuilder (Chain Construction)
+- **Purpose**: Handles chain building logic during construction phase
+- **Responsibility**: Creates MiddlewareMCPServer instances and manages replacement
+- **Interface**: Implements `DictMCPServer` protocol (but throws errors if used for requests)
+- **Lifecycle**: Gets replaced by actual downstream server when chain is complete
 
-#### Phase 1: Chain Building (MCPChainBuilder)
-- **MCPChainBuilder** exists only during chain construction
-- Handles argument detection and smart `then()` logic
-- Gets completely replaced when real downstream server is added
-- Should never process actual MCP requests (throws errors if accessed)
+#### 4. ExternalMCPServer (External Server Interface)  
+- **Purpose**: Communicates with real external MCP servers
+- **Responsibility**: Dict ↔ JSON conversion for external server communication
+- **Interface**: Implements `DictMCPServer` protocol (dict-based)
+- **External Communication**: Converts dicts to JSON for real MCP server, JSON responses back to dicts
 
-#### Phase 2: Runtime Execution (MiddlewareMCPServer)
-- **MiddlewareMCPServer** handles runtime request/response processing
-- Agnostic about child types - just delegates and wraps
-- Each middleware layer transforms requests/responses as needed
-- Forms the actual execution chain after building is complete
+## Chain Building Flow
+
+### Phase 1: Initial Construction
+```python
+chain = mcp_chain()
+# Result: FrontMCPServer -> MCPChainBuilder
+```
+
+### Phase 2: Adding Transformers
+```python
+chain = chain.then(auth_meta_transformer, auth_req_transformer)
+# Result: FrontMCPServer -> MiddlewareMCPServer(auth) -> MCPChainBuilder
+
+chain = chain.then(logging_meta_transformer, logging_req_transformer) 
+# Result: FrontMCPServer -> MiddlewareMCPServer(auth) -> MiddlewareMCPServer(logging) -> MCPChainBuilder
+```
+
+### Phase 3: Adding External Server
+```python
+external_server = ExternalMCPServer("postgres-mcp")
+final_chain = chain.then(external_server)
+# Result: FrontMCPServer -> MiddlewareMCPServer(auth) -> MiddlewareMCPServer(logging) -> ExternalMCPServer
+# MCPChainBuilder is completely replaced
+```
+
+## Type System
+
+### Core Protocols
+
+```python
+class MCPServer(Protocol):
+    """JSON-based interface for external clients."""
+    def get_metadata(self) -> str: ...
+    def handle_request(self, request: str) -> str: ...
+
+class DictMCPServer(Protocol):
+    """Dict-based interface for internal middleware."""
+    def get_metadata(self) -> Dict[str, Any]: ...
+    def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]: ...
+```
+
+### Transformer Types
+
+```python
+# Dict-based transformers (clean architecture)
+DictMetadataTransformer = Callable[[DictMCPServer, Dict[str, Any]], Dict[str, Any]]
+DictRequestResponseTransformer = Callable[[DictMCPServer, Dict[str, Any]], Dict[str, Any]]
+```
 
 ## Usage Patterns
 
 ### Basic Chain Construction
 
 ```python
-from mcp_chain import mcp_chain
+from mcp_chain import mcp_chain, ExternalMCPServer
 
-# Build a simple chain
+# Define dict-based transformers
+def add_auth_metadata(next_server, metadata_dict):
+    metadata = next_server.get_metadata()
+    for tool in metadata.get("tools", []):
+        tool["auth_required"] = True
+    return metadata
+
+def add_auth_request(next_server, request_dict):
+    # Add auth headers
+    modified_request = request_dict.copy()
+    modified_request["auth_token"] = get_auth_token()
+    
+    # Call downstream
+    response = next_server.handle_request(modified_request)
+    
+    # Add auth confirmation
+    response["authenticated"] = True
+    return response
+
+# Create external server wrapper
+postgres_server = ExternalMCPServer("postgres-mcp", command="postgres-mcp")
+
+# Build the chain
 chain = (mcp_chain()
-         .then(metadata_transformer, request_transformer)  # Add transformers
-         .then(downstream_server))                         # Add downstream server
+         .then(add_auth_metadata, add_auth_request)
+         .then(postgres_server))
 
-# Use like any MCP server
-metadata = chain.get_metadata()
-response = chain.handle_request('{"method": "tools/call", ...}')
+# Use like any MCP server - client gets JSON interface
+metadata = chain.get_metadata()  # Returns JSON string
+response = chain.handle_request('{"method": "query", "params": {...}}')  # Returns JSON string
 ```
 
 ### Common Use Cases
 
-#### 1. Context Enrichment
-Transform generic MCP servers into domain-specific ones:
-
+#### 1. Authentication & Authorization
 ```python
-def add_company_context(next_mcp, json_metadata: str) -> str:
-    # Get metadata from downstream
-    original_metadata = next_mcp.get_metadata()
-    metadata = json.loads(original_metadata)
+def auth_metadata_transformer(next_server, metadata_dict):
+    metadata = next_server.get_metadata()
+    # Add auth requirements to tool descriptions
     for tool in metadata.get("tools", []):
-        tool["description"] = f"Company Database: {tool['description']}"
-    return json.dumps(metadata)
-
-# Transform generic postgres-mcp into company-database-mcp
-chain = mcp_chain().then(add_company_context, identity_transformer).then(postgres_server)
-```
-
-#### 2. Authentication & Authorization
-Add security layers without modifying downstream servers:
-
-```python
-def add_auth_headers(next_mcp, json_request: str) -> str:
-    request = json.loads(json_request)
-    request["headers"] = {"Authorization": f"Bearer {get_token()}"}
-    
-    # Forward authenticated request to downstream and return response
-    return next_mcp.handle_request(json.dumps(request))
-
-chain = mcp_chain().then(lambda x: x, add_auth_headers).then(protected_server)
-```
-
-#### 3. Request/Response Logging
-Monitor all MCP interactions:
-
-```python
-def log_requests(next_mcp, json_request: str) -> str:
-    logger.info(f"MCP Request: {json_request}")
-    
-    # Forward request to downstream
-    response = next_mcp.handle_request(json_request)
-    
-    # Log and return response
-    logger.info(f"MCP Response: {response}")
-    return response
-
-chain = mcp_chain().then(lambda x: x, log_requests).then(server)
-```
-
-#### 4. Multi-Layer Chains
-Compose multiple middleware layers:
-
-```python
-chain = (mcp_chain()
-         .then(auth_middleware)           # Add authentication
-         .then(logging_middleware)        # Add logging
-         .then(context_middleware)        # Add context
-         .then(downstream_server))        # Connect to actual server
-```
-
-## Current Implementation Status
-
-### ✅ Implemented Features
-
-- **MCPChainBuilder pattern** - Clean separation of chain building from runtime execution
-- **Smart argument detection** - Automatically handles transformers vs downstream servers
-- **Delegating MiddlewareMCPServer** - Agnostic middleware that just delegates and wraps
-- **Raw transformer support** (JSON string-based functions)
-- **Metadata transformation** for tool descriptions and capabilities
-- **Request/response transformation** in both directions  
-- **Proper error handling** - No backward compatibility, clean error messages
-- **Type safety** with comprehensive type annotations
-- **Modular architecture** with clean file separation
-
-### 🔄 Current API
-
-#### Chain Building with MCPChainBuilder
-
-```python
-from mcp_chain import mcp_chain
-
-# Start with MCPChainBuilder
-builder = mcp_chain()  # Returns MCPChainBuilder
-
-# Add transformers - creates MiddlewareMCPServer with MCPChainBuilder as downstream
-middleware = builder.then(metadata_transformer, request_transformer)
-
-# Add downstream server - MCPChainBuilder detects it and returns it directly
-final_chain = middleware.then(downstream_server)  # MCPChainBuilder is completely replaced
-```
-
-#### MiddlewareMCPServer Delegation
-
-```python
-# MiddlewareMCPServer.then() now simply:
-# 1. Delegates args to child.then()
-# 2. Wraps result in new MiddlewareMCPServer
-# 3. Throws error if child has no `then` method
-
-# This creates clean delegation:
-# MW1 -> MW2 -> downstream
-# MW1.then(x) calls MW2.then(x), wraps result
-```
-
-#### Raw Transformers
-
-Raw transformers work directly with JSON strings:
-
-```python
-# Metadata transformer
-def metadata_transformer(next_mcp, json_metadata: str) -> str:
-    # Get metadata from downstream, transform, and return
-    # Note: The json_metadata argument can be used to communicate 
-    # with downstream middleware, even though get_metadata() doesn't 
-    # have arguments in the MCP protocol
-    original_metadata = next_mcp.get_metadata()
-    return transform(original_metadata)
-
-# Request/response transformer  
-def request_transformer(next_mcp, json_request: str) -> str:
-    # Transform request 
-    transformed_request = transform_request(json_request)
-    
-    # Forward to downstream and get response
-    response = next_mcp.handle_request(transformed_request)
-    
-    # Transform and return response
-    return transform_response(response)
-```
-
-## TODO List - Missing Features
-
-### 🎯 High Priority
-
-#### 1. Automatic Transformer Type Detection
-**Status**: Not implemented  
-**Description**: Implement automatic detection of porcelain vs raw transformers using type hints
-
-```python
-# Should auto-detect this is a porcelain transformer
-def porcelain_transformer(metadata: Dict[str, Any]) -> Dict[str, Any]:
+        if tool["name"] in ["sensitive_query", "admin_action"]:
+            tool["auth_required"] = True
     return metadata
 
-# Should auto-detect this is a raw transformer  
-def raw_transformer(json_metadata: str) -> str:
-    return json_metadata
-
-# Implementation needed in middleware.py:
-def _is_raw_transformer(self, transformer) -> bool:
-    """Detect if transformer is raw by checking type hints"""
-    # Use get_type_hints() and inspect.signature()
-    pass
-
-def _wrap_metadata_transformer(self, transformer: MetadataTransformer) -> RawMetadataTransformer:
-    """Wrap dict-based transformer to work with JSON strings"""
-    pass
-
-def _wrap_request_transformer(self, transformer: RequestResponseTransformer) -> RawRequestResponseTransformer:
-    """Wrap dict-based transformer to work with JSON strings"""
-    pass
+def auth_request_transformer(next_server, request_dict):
+    # Verify auth token
+    if not validate_auth_token(request_dict.get("auth_token")):
+        return {"error": "Authentication required", "code": 401}
+    
+    # Forward to downstream
+    return next_server.handle_request(request_dict)
 ```
 
-#### 2. Single-argument `then()` for Request Transformers
-**Status**: Not implemented  
-**Description**: Support `then(request_transformer)` for request-only transformations
-
+#### 2. Request/Response Logging
 ```python
-# Should work:
-chain = mcp_chain().then(request_only_transformer).then(server)
-
-# Current workaround:
-chain = mcp_chain().then(lambda x: x, request_transformer).then(server)
+def logging_request_transformer(next_server, request_dict):
+    # Log incoming request
+    logger.info(f"Incoming request: {request_dict['method']}")
+    
+    # Forward to downstream  
+    response = next_server.handle_request(request_dict)
+    
+    # Log response
+    logger.info(f"Response status: {response.get('result', 'error')}")
+    return response
 ```
 
-#### 3. Enhanced then() Method
-**Status**: Partially implemented  
-**Description**: Smart `then()` method that auto-detects transformer types
-
+#### 3. Context Enrichment
 ```python
-# Should all work automatically:
-chain = (mcp_chain()
-    .then(dict_metadata_transformer, dict_request_transformer)  # Porcelain
-    .then(raw_request_transformer)                              # Raw, request-only
-    .then(raw_metadata_transformer, raw_request_transformer)    # Raw, both
-    .then(downstream_server))                                   # Server
+def context_metadata_transformer(next_server, metadata_dict):
+    metadata = next_server.get_metadata()
+    # Transform generic tools into company-specific ones
+    for tool in metadata.get("tools", []):
+        if tool["name"] == "query_database":
+            tool["description"] = f"Query {COMPANY_NAME} customer database"
+            tool["company_schema"] = get_company_schema()
+    return metadata
 ```
 
-### 🔧 Medium Priority
+## Data Flow
 
-#### 4. Overloaded then() Method with Type Hints
-**Status**: Not implemented  
-**Description**: Add proper `@overload` decorators for better IDE support
+### Request Flow
+1. **Client** sends JSON request to **FrontMCPServer**
+2. **FrontMCPServer** converts JSON → Dict
+3. **MiddlewareMCPServer₁** applies first transformation (Dict → Dict)
+4. **MiddlewareMCPServer₂** applies second transformation (Dict → Dict)
+5. **ExternalMCPServer** converts Dict → JSON for real MCP server
+6. **Real MCP Server** processes JSON request
+7. Response flows back up the chain (JSON → Dict → Dict → Dict → JSON)
 
-```python
-from typing import overload, Union
+### Metadata Flow
+1. **Client** calls `get_metadata()` on **FrontMCPServer**
+2. **FrontMCPServer** calls `get_metadata()` on downstream (returns Dict)
+3. Each **MiddlewareMCPServer** can transform metadata (Dict → Dict)
+4. **ExternalMCPServer** fetches metadata from real server (JSON → Dict)
+5. Transformed metadata flows back up (Dict → Dict → Dict → JSON)
 
-@overload
-def then(self, downstream: MCPServer) -> 'MiddlewareMCPServer': ...
+## Implementation Status
 
-@overload 
-def then(self, transformer: Union[RequestResponseTransformer, RawRequestResponseTransformer]) -> 'MiddlewareMCPServer': ...
+### ✅ Fully Implemented
 
-@overload
-def then(self, metadata_transformer: Union[MetadataTransformer, RawMetadataTransformer], 
-         request_transformer: Union[RequestResponseTransformer, RawRequestResponseTransformer]) -> 'MiddlewareMCPServer': ...
+- **Clean dict-based architecture** - No raw transformers, pure dict processing
+- **FrontMCPServer** - JSON ↔ Dict conversion for client interface
+- **MiddlewareMCPServer** - Dict-based transformer processing
+- **MCPChainBuilder** - Chain construction with proper replacement pattern
+- **ExternalMCPServer** - Dict ↔ JSON conversion for external servers
+- **Type safety** - Complete type annotations with protocols
+- **Chain building** - Proper delegation and replacement patterns
+- **Error handling** - Clean error messages and proper failure modes
+
+### 🎯 Architecture Benefits
+
+1. **Simplicity** - No complex JSON string manipulation in middleware
+2. **Performance** - No unnecessary JSON parsing/serialization in pipeline  
+3. **Type Safety** - Rich type information for all transformers
+4. **Debuggability** - Easy to inspect dict objects vs JSON strings
+5. **Composability** - Clean functional composition patterns
+6. **Testability** - Easy to test with mock dict objects
+
+## File Organization
+
+```
+src/mcp_chain/
+├── __init__.py          # Public API exports
+├── types.py             # Protocol definitions and type aliases
+├── front.py             # FrontMCPServer (client JSON interface)
+├── middleware.py        # MiddlewareMCPServer (dict-based processing)
+├── builder.py           # MCPChainBuilder (chain construction)
+├── external.py          # ExternalMCPServer (external server interface)
+└── config.py            # Configuration management
+
+tests/
+├── test_front.py                # FrontMCPServer tests
+├── test_architecture.py         # Architecture pattern tests
+├── test_final_architecture.py   # End-to-end integration tests
+├── test_dict_verification.py    # Dict-based processing verification
+├── test_design_sync.py          # Design document verification tests
+└── test_types.py                # Type definition tests
 ```
 
-#### 5. Error Handling Improvements
-**Status**: Basic implementation  
-**Description**: Better error messages and error recovery
+## Key Architecture Decisions
 
-- More descriptive error messages
-- Better handling of malformed JSON in transformers
-- Graceful fallbacks when transformers fail
+### Why Dict-Based Processing?
 
-#### 6. Logging and Debugging Support
-**Status**: Not implemented  
-**Description**: Built-in logging for debugging chains
+1. **Performance** - Eliminates unnecessary JSON parsing/serialization in middleware pipeline
+2. **Type Safety** - Rich type information available throughout the chain
+3. **Debuggability** - Easy to inspect and debug dict objects vs opaque JSON strings
+4. **Simplicity** - No complex type detection or wrapper functions needed
+5. **Composability** - Clean functional composition without JSON conversion overhead
 
-```python
-# Enable debug logging
-chain = mcp_chain(debug=True)
+### Boundary Separation
 
-# Or add logging middleware
-chain = mcp_chain().then(logging_middleware).then(server)
-```
+JSON conversion happens only at system boundaries:
+- **FrontMCPServer**: Client JSON ↔ Internal Dict
+- **ExternalMCPServer**: Internal Dict ↔ External Server JSON
 
-### 🚀 Low Priority (Future Enhancements)
+This creates a clean separation of concerns where:
+- External interfaces remain MCP-compliant (JSON-based)
+- Internal processing is efficient and type-safe (dict-based)
+- Middleware doesn't need to handle JSON serialization complexity
 
-#### 7. Performance Optimizations
-- Connection pooling for downstream servers
-- Caching layer for expensive transformations
-- Async/await support for concurrent processing
+### Chain Building Pattern
 
-#### 8. Configuration Management
-- YAML/JSON configuration files for chains
-- Environment variable support
-- Dynamic chain reconfiguration
-
-#### 9. Middleware Library
-- Pre-built common middleware (auth, logging, caching, rate limiting)
-- Plugin system for third-party middleware
-- Middleware discovery and registration
-
-#### 10. Advanced Features
-- Conditional middleware (route-based)
-- Middleware composition helpers
-- Chain validation and testing utilities
-
-## Implementation Notes
-
-### Adding Porcelain Transformer Support
-
-The main work for porcelain transformers involves:
-
-1. **Type Detection** - Use `get_type_hints()` to inspect function signatures
-2. **Wrapper Functions** - Convert dict-based transformers to JSON string transformers  
-3. **Updated then() Method** - Auto-detect and wrap transformers as needed
-
-### Testing Strategy
-
-Continue using TDD for new features:
-1. Write failing tests for the desired API
-2. Implement minimal functionality to pass tests
-3. Refactor and improve while keeping tests green
-
-### Code Organization
-
-The current file structure is clean and should be maintained:
-- Keep `__init__.py` minimal with just public API
-- Add new functionality to appropriate separate files
-- Maintain type safety throughout
-
-## Architecture Diagrams
-
-### Current Implementation (Completed)
-```mermaid
-graph TD
-    subgraph "Public API"
-        API[mcp_chain()]
-    end
-    
-    subgraph "Chain Building"
-        CB[MCPChainBuilder]
-    end
-    
-    subgraph "Runtime Execution"
-        MW1[MiddlewareMCPServer]
-        MW2[MiddlewareMCPServer]
-        RT[Raw Transformers]
-    end
-    
-    subgraph "Downstream"
-        DS[Downstream Server]
-    end
-    
-    API --> CB
-    CB --> MW1
-    MW1 --> MW2
-    MW1 --> RT
-    MW2 --> DS
-    
-    classDef implemented fill:#90EE90
-    classDef building fill:#ADD8E6
-    classDef runtime fill:#F0E68C
-    
-    class API,CB,MW1,MW2,RT,DS implemented
-    class CB building
-    class MW1,MW2,RT runtime
-```
-
-### Chain Building Flow
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Builder as MCPChainBuilder
-    participant MW1 as MiddlewareMCPServer
-    participant MW2 as MiddlewareMCPServer
-    participant DS as Downstream Server
-
-    Client->>Builder: mcp_chain()
-    Client->>Builder: .then(transformer1, transformer2)
-    Builder->>MW1: create with transformers & Builder as downstream
-    Builder-->>Client: return MW1
-    
-    Client->>MW1: .then(transformer3, transformer4)
-    MW1->>Builder: delegate .then() call
-    Builder->>MW2: create with transformers & Builder as downstream
-    Builder-->>MW1: return MW2
-    MW1->>MW1: wrap MW2 in new MiddlewareMCPServer
-    MW1-->>Client: return wrapped MW1
-    
-    Client->>MW1: .then(downstream_server)
-    MW1->>MW2: delegate .then() call
-    MW2->>Builder: delegate .then() call
-    Builder-->>MW2: return downstream_server directly
-    MW2->>MW2: wrap downstream in new MiddlewareMCPServer
-    MW2-->>MW1: return wrapped MW2
-    MW1->>MW1: wrap result in new MiddlewareMCPServer
-    MW1-->>Client: return final chain (Builder is gone!)
-```
-
-### Future Implementation (TODOs)
-```mermaid
-graph TD
-    subgraph "Public API"
-        API[mcp_chain()]
-    end
-    
-    subgraph "Chain Building"
-        CB[MCPChainBuilder]
-        TD[Type Detection]
-    end
-    
-    subgraph "Runtime Execution"
-        MW1[MiddlewareMCPServer]
-        MW2[MiddlewareMCPServer]
-        RT[Raw Transformers]
-        PT[Porcelain Transformers]
-        WR[Wrapper Functions]
-    end
-    
-    subgraph "Downstream"
-        DS[Downstream Server]
-    end
-    
-    API --> CB
-    CB --> TD
-    TD --> WR
-    CB --> MW1
-    MW1 --> MW2
-    MW1 --> RT
-    MW1 --> PT
-    MW2 --> DS
-    
-    classDef implemented fill:#90EE90
-    classDef missing fill:#FFB6C1
-    classDef building fill:#ADD8E6
-    classDef runtime fill:#F0E68C
-    
-    class API,CB,MW1,MW2,RT,DS implemented
-    class PT,TD,WR missing
-    class CB,TD building
-    class MW1,MW2,RT,PT,WR runtime
-```
+The chain building uses a **replacement pattern** where `MCPChainBuilder` acts as a placeholder during construction and gets completely replaced when the real downstream server is added. This ensures:
+- Clean chain topology without placeholder objects in the final chain
+- Type safety throughout the construction process
+- Proper delegation patterns for chaining operations
