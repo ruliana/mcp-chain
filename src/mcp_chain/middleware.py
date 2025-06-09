@@ -10,7 +10,7 @@ from .types import (
     RequestResponseTransformer,
     MCPServer
 )
-from .dummy import MCPChainBuilder
+from .builder import MCPChainBuilder
 
 
 class MiddlewareMCPServer:

@@ -11,8 +11,9 @@ from .types import (
 
 # Import implementations
 from .middleware import MiddlewareMCPServer
-from .dummy import MCPChainBuilder
-from .external import ExternalMCPServer, MCPServerConfig
+from .builder import MCPChainBuilder
+from .external import ExternalMCPServer
+from .config import MCPServerConfig
 
 
 # Factory function

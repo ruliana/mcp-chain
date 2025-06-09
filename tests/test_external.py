@@ -4,7 +4,8 @@ import pytest
 import json
 import subprocess
 from unittest.mock import Mock, patch
-from mcp_chain.external import MCPServerConfig, ExternalMCPServer
+from mcp_chain.config import MCPServerConfig
+from mcp_chain.external import ExternalMCPServer
 
 
 def test_mcp_server_config_stores_servers():

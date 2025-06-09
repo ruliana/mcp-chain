@@ -140,4 +140,3 @@ class MCPChainBuilder:
             )
         
         raise ValueError("Unsupported arguments to then()")
-    
