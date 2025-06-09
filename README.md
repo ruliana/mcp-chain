@@ -94,6 +94,9 @@ Client → mcp_chain() → transformer_middleware → downstream_server
 # Raw transformers (work with JSON strings)
 def metadata_transformer(next_mcp, json_metadata: str) -> str:
     # Get metadata from downstream and transform it
+    # Note: The json_metadata argument can be used to communicate 
+    # with downstream middleware, even though get_metadata() doesn't 
+    # have arguments in the MCP protocol
     original_metadata = next_mcp.get_metadata()
     # Transform and return
     return modified_json

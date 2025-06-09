@@ -184,6 +184,9 @@ Raw transformers work directly with JSON strings:
 # Metadata transformer
 def metadata_transformer(next_mcp, json_metadata: str) -> str:
     # Get metadata from downstream, transform, and return
+    # Note: The json_metadata argument can be used to communicate 
+    # with downstream middleware, even though get_metadata() doesn't 
+    # have arguments in the MCP protocol
     original_metadata = next_mcp.get_metadata()
     return transform(original_metadata)
 

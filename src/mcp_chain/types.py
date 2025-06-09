@@ -19,7 +19,9 @@ class MCPServer(Protocol):
 MetadataTransformer = Callable[[MCPServer, Dict[str, Any]], Dict[str, Any]]
 RequestResponseTransformer = Callable[[MCPServer, Dict[str, Any]], Dict[str, Any]]
 
-# Raw transformer types (work with JSON strings)  
+# Raw transformer types (work with JSON strings)
+# Note: The metadata argument can be used to communicate with downstream middleware,
+# even though get_metadata() doesn't have arguments in the MCP protocol
 RawMetadataTransformer = Callable[[MCPServer, str], str]
 RawRequestResponseTransformer = Callable[[MCPServer, str], str]
 
