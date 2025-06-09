@@ -1,0 +1,14 @@
+[project]
+name = "mcp-chain"
+version = "0.1.0"
+description = "An MCP server proxy with to modify and enrich calls to other MCP servers"
+readme = "README.md"
+authors = [
+    { name = "Ronie Uliana", email = "ronie.uliana@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
