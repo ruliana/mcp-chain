@@ -12,6 +12,7 @@ from .types import (
 # Import implementations
 from .middleware import MiddlewareMCPServer
 from .dummy import MCPChainBuilder
+from .external import ExternalMCPServer, MCPServerConfig
 
 
 # Factory function
@@ -32,6 +33,8 @@ __all__ = [
     # Classes
     "MiddlewareMCPServer",
     "MCPChainBuilder",
+    "ExternalMCPServer",
+    "MCPServerConfig",
     
     # Factory function
     "mcp_chain",
