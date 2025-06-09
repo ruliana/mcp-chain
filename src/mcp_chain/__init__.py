@@ -9,6 +9,8 @@ from .types import (
     DictMCPServer,
     DictMetadataTransformer,
     DictRequestResponseTransformer,
+    MetadataTransformer,
+    RequestResponseTransformer,
 )
 
 # Import implementations
@@ -34,6 +36,8 @@ __all__ = [
     "DictMCPServer", 
     "DictMetadataTransformer",
     "DictRequestResponseTransformer",
+    "MetadataTransformer",
+    "RequestResponseTransformer",
     
     # Core classes
     "FrontMCPServer",

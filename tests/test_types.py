@@ -11,6 +11,13 @@ from mcp_chain import (
     DictRequestResponseTransformer,
 )
 
+# Test imports for new transformer names (should fail initially)
+try:
+    from mcp_chain import MetadataTransformer, RequestResponseTransformer
+    NEW_TRANSFORMER_TYPES_AVAILABLE = True
+except ImportError:
+    NEW_TRANSFORMER_TYPES_AVAILABLE = False
+
 
 def test_dict_metadata_transformer_type():
     """Test that DictMetadataTransformer type works correctly."""
@@ -136,3 +143,42 @@ def test_dict_mcp_server_protocol():
     # Test request handling  
     response_dict = server.handle_request({"method": "test"})
     assert response_dict == response
+
+
+def test_new_transformer_types():
+    """Test that new transformer type names work correctly (should fail initially)."""
+    if not NEW_TRANSFORMER_TYPES_AVAILABLE:
+        pytest.skip("New transformer types not yet available")
+    
+    # Create mock dict server
+    class MockDictServer:
+        def get_metadata(self):
+            return {"tools": [{"name": "test"}]}
+        def handle_request(self, request):
+            return {"result": "success"}
+    
+    def sample_metadata_transformer(next_server, metadata_dict: Dict[str, Any]) -> Dict[str, Any]:
+        original = next_server.get_metadata()
+        return {**original, "transformed": True}
+    
+    def sample_request_transformer(next_server, request_dict: Dict[str, Any]) -> Dict[str, Any]:
+        modified_request = {**request_dict, "transformed": True}
+        response = next_server.handle_request(modified_request)
+        return {**response, "response_transformed": True}
+    
+    # These should compile without error
+    meta_transformer: MetadataTransformer = sample_metadata_transformer
+    req_transformer: RequestResponseTransformer = sample_request_transformer
+    
+    # Test execution
+    mock_server = MockDictServer()
+    
+    meta_result = meta_transformer(mock_server, {})
+    assert meta_result == {"tools": [{"name": "test"}], "transformed": True}
+    
+    req_result = req_transformer(mock_server, {"method": "test"})
+    expected = {
+        "result": "success", 
+        "response_transformed": True
+    }
+    assert req_result == expected

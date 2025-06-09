@@ -30,3 +30,7 @@ class DictMCPServer(Protocol):
 # Dict-based transformer types (clean architecture)
 DictMetadataTransformer = Callable[[DictMCPServer, Dict[str, Any]], Dict[str, Any]]
 DictRequestResponseTransformer = Callable[[DictMCPServer, Dict[str, Any]], Dict[str, Any]]
+
+# New transformer type names (no Hungarian notation)
+MetadataTransformer = Callable[[DictMCPServer, Dict[str, Any]], Dict[str, Any]]
+RequestResponseTransformer = Callable[[DictMCPServer, Dict[str, Any]], Dict[str, Any]]

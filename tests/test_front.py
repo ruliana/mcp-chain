@@ -158,11 +158,11 @@ def test_dict_based_mcp_server_protocol():
 
 def test_porcelain_transformer_types():
     """RED: Test that porcelain transformer types work with DictMCPServer."""
-    from mcp_chain import DictMetadataTransformer, DictRequestResponseTransformer
+    from mcp_chain import MetadataTransformer, RequestResponseTransformer
     
     # Should be able to import porcelain transformer types
-    assert DictMetadataTransformer is not None
-    assert DictRequestResponseTransformer is not None
+    assert MetadataTransformer is not None
+    assert RequestResponseTransformer is not None
 
 
 def test_end_to_end_dict_based_chain():

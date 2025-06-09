@@ -179,7 +179,7 @@ def test_design_doc_logging_example_works():
 
 def test_design_doc_protocols_match_implementation():
     """Test that the protocols in design.md match the actual implementation."""
-    from mcp_chain import MCPServer, DictMCPServer, DictMetadataTransformer, DictRequestResponseTransformer
+    from mcp_chain import MCPServer, DictMCPServer, MetadataTransformer, RequestResponseTransformer
     from typing import get_type_hints, Dict, Any
     
     # Test MCPServer protocol

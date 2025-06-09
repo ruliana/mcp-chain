@@ -1,7 +1,7 @@
 """Middleware MCP server implementation for MCP Chain."""
 
 from typing import Callable, Any, Dict
-from .types import DictMCPServer, DictMetadataTransformer, DictRequestResponseTransformer
+from .types import DictMCPServer, MetadataTransformer, RequestResponseTransformer
 
 
 class MiddlewareMCPServer:
@@ -9,8 +9,8 @@ class MiddlewareMCPServer:
     
     def __init__(self, 
                  downstream_server: DictMCPServer,
-                 metadata_transformer: DictMetadataTransformer = None,
-                 request_transformer: DictRequestResponseTransformer = None):
+                 metadata_transformer: MetadataTransformer = None,
+                 request_transformer: RequestResponseTransformer = None):
         self._downstream = downstream_server
         self._metadata_transformer = metadata_transformer or (lambda next_server, metadata_dict: next_server.get_metadata())
         self._request_transformer = request_transformer or (lambda next_server, request_dict: next_server.handle_request(request_dict))

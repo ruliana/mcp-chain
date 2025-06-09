@@ -16,15 +16,15 @@ def test_can_import_transformer_types():
     from mcp_chain import (
         MetadataTransformer,
         RequestResponseTransformer,
-        RawMetadataTransformer,
-        RawRequestResponseTransformer
+        DictMetadataTransformer,
+        DictRequestResponseTransformer
     )
     
     # These should not raise import errors
     assert MetadataTransformer is not None
     assert RequestResponseTransformer is not None
-    assert RawMetadataTransformer is not None
-    assert RawRequestResponseTransformer is not None
+    assert DictMetadataTransformer is not None
+    assert DictRequestResponseTransformer is not None
 
 
 def test_can_import_middleware_mcp_server():
