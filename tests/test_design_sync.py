@@ -51,21 +51,19 @@ def test_design_doc_basic_example_works():
              .then(add_auth_metadata, add_auth_request)
              .then(postgres_server))
 
-    # Use like any MCP server - client gets JSON interface
-    metadata = chain.get_metadata()  # Returns JSON string
-    assert isinstance(metadata, str)
+    # Use like any MCP server - FastMCP handles JSON protocol layer
+    metadata = chain.get_metadata()  # Returns dict directly (no longer wrapped by FrontMCPServer)
+    assert isinstance(metadata, dict)
     
-    metadata_dict = json.loads(metadata)
-    assert metadata_dict["tools"][0]["auth_required"] is True
-    assert metadata_dict["tools"][0]["name"] == "query"
+    assert metadata["tools"][0]["auth_required"] is True
+    assert metadata["tools"][0]["name"] == "query"
 
-    response = chain.handle_request('{"method": "query", "params": {"sql": "SELECT * FROM users"}}')
-    assert isinstance(response, str)
+    response = chain.handle_request({"method": "query", "params": {"sql": "SELECT * FROM users"}})
+    assert isinstance(response, dict)
     
-    response_dict = json.loads(response)
-    assert response_dict["result"] == "query_executed"
-    assert response_dict["authenticated"] is True
-    assert response_dict["method"] == "query"
+    assert response["result"] == "query_executed"
+    assert response["authenticated"] is True
+    assert response["method"] == "query"
 
 
 def test_design_doc_auth_example_works():
@@ -109,7 +107,7 @@ def test_design_doc_auth_example_works():
              .then(mock_server))
     
     # Test metadata transformation
-    metadata = json.loads(chain.get_metadata())
+    metadata = chain.get_metadata()
     sensitive_tool = next(t for t in metadata["tools"] if t["name"] == "sensitive_query")
     public_tool = next(t for t in metadata["tools"] if t["name"] == "public_query")
     
@@ -118,12 +116,12 @@ def test_design_doc_auth_example_works():
     
     # Test auth enforcement
     # Without auth token
-    response = json.loads(chain.handle_request('{"method": "sensitive_query"}'))
+    response = chain.handle_request({"method": "sensitive_query"})
     assert response["error"] == "Authentication required"
     assert response["code"] == 401
     
     # With valid auth token
-    response = json.loads(chain.handle_request('{"method": "sensitive_query", "auth_token": "valid_token"}'))
+    response = chain.handle_request({"method": "sensitive_query", "auth_token": "valid_token"})
     assert response["result"] == "success"
 
 
@@ -132,54 +130,64 @@ def test_design_doc_logging_example_works():
     from mcp_chain import mcp_chain
     import io
     import logging
+    import uuid
     
-    # Set up logging capture
+    # Create unique logger to avoid conflicts
+    unique_logger_name = f"test_logger_{uuid.uuid4().hex[:8]}"
+    
+    # Set up logging capture with proper cleanup
     log_capture = io.StringIO()
     handler = logging.StreamHandler(log_capture)
-    logger = logging.getLogger("test_logger")
+    logger = logging.getLogger(unique_logger_name)
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     
-    # Mock server
-    class MockServer:
-        def get_metadata(self):
-            return {"tools": [{"name": "test_tool"}]}
+    try:
+        # Mock server
+        class MockServer:
+            def get_metadata(self):
+                return {"tools": [{"name": "test_tool"}]}
+            
+            def handle_request(self, request_dict):
+                return {"result": "processed", "method": request_dict.get("method")}
         
-        def handle_request(self, request_dict):
-            return {"result": "processed", "method": request_dict.get("method")}
-    
-    # Logging transformer from design.md
-    def logging_request_transformer(next_server, request_dict):
-        # Log incoming request
-        logger.info(f"Incoming request: {request_dict['method']}")
+        # Logging transformer from design.md
+        def logging_request_transformer(next_server, request_dict):
+            # Log incoming request
+            logger.info(f"Incoming request: {request_dict['method']}")
+            
+            # Forward to downstream  
+            response = next_server.handle_request(request_dict)
+            
+            # Log response
+            logger.info(f"Response status: {response.get('result', 'error')}")
+            return response
         
-        # Forward to downstream  
-        response = next_server.handle_request(request_dict)
+        mock_server = MockServer()
         
-        # Log response
-        logger.info(f"Response status: {response.get('result', 'error')}")
-        return response
-    
-    mock_server = MockServer()
-    
-    chain = (mcp_chain()
-             .then(lambda next_server, metadata_dict: next_server.get_metadata(), 
-                   logging_request_transformer)
-             .then(mock_server))
-    
-    # Make a request
-    response = json.loads(chain.handle_request('{"method": "test_method", "params": {}}'))
-    assert response["result"] == "processed"
-    
-    # Check logs
-    log_output = log_capture.getvalue()
-    assert "Incoming request: test_method" in log_output
-    assert "Response status: processed" in log_output
+        chain = (mcp_chain()
+                 .then(lambda next_server, metadata_dict: next_server.get_metadata(), 
+                       logging_request_transformer)
+                 .then(mock_server))
+        
+        # Make a request
+        response = chain.handle_request({"method": "test_method", "params": {}})
+        assert response["result"] == "processed"
+        
+        # Check logs
+        log_output = log_capture.getvalue()
+        assert "Incoming request: test_method" in log_output
+        assert "Response status: processed" in log_output
+        
+    finally:
+        # Clean up logger
+        logger.removeHandler(handler)
+        handler.close()
 
 
 def test_design_doc_protocols_match_implementation():
     """Test that the protocols in design.md match the actual implementation."""
-    from mcp_chain import MCPServer, DictMCPServer, MetadataTransformer, RequestResponseTransformer
+    from mcp_chain import DictMCPServer, MetadataTransformer, RequestResponseTransformer
     from typing import get_type_hints, Dict, Any
     
     # Test MCPServer protocol

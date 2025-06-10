@@ -8,14 +8,15 @@ from .types import DictMCPServer
 class FastMCPServer:
     """Adapter between FastMCP and dict-based middleware chain."""
     
-    def __init__(self, downstream_server: DictMCPServer):
+    def __init__(self, downstream_server: DictMCPServer, name: str = "mcp-chain"):
         """Initialize FastMCPServer with downstream middleware chain.
         
         Args:
             downstream_server: The dict-based MCP server to wrap
+            name: Name of the MCP server
         """
         self._downstream = downstream_server
-        self._fastmcp = FastMCP("mcp-chain")
+        self._fastmcp = FastMCP(name)
         self._register_dynamic_handlers()
     
     def _register_dynamic_handlers(self):
@@ -70,5 +71,12 @@ class FastMCPServer:
         self._fastmcp.resource(resource_uri)(resource_handler)
     
     def run(self, **kwargs):
-        """Start the FastMCP server."""
-        return self._fastmcp.run(**kwargs)
+        """Start the FastMCP server.
+        
+        Args:
+            **kwargs: Arguments passed to FastMCP.run() (transport, etc.)
+                     'name' parameter is handled in __init__ and filtered out here
+        """
+        # Filter out 'name' parameter since it's handled in __init__
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k != 'name'}
+        return self._fastmcp.run(**filtered_kwargs)

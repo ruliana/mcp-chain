@@ -16,6 +16,7 @@ from .types import (
 from .middleware import MiddlewareMCPServer
 from .builder import MCPChainBuilder
 from .external import ExternalMCPServer
+from .cli_mcp import CLIMCPServer
 from .fastmcp import FastMCPServer
 from .serve import serve
 
@@ -39,6 +40,7 @@ __all__ = [
     "FastMCPServer",
     "MiddlewareMCPServer",
     "ExternalMCPServer",
+    "CLIMCPServer",
     "MCPChainBuilder",
     
     # Functions

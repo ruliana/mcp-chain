@@ -57,8 +57,9 @@ def test_complete_fastmcp_integration():
     
     def logging_request_transformer(next_server, request_dict):
         """Add logging to requests."""
+        from datetime import datetime, timezone
         response = next_server.handle_request(request_dict)
-        response["logged_at"] = "2024-01-01T00:00:00Z"
+        response["logged_at"] = datetime.now(timezone.utc).isoformat()
         return response
     
     # Step 2: Create external server
@@ -87,7 +88,7 @@ def test_complete_fastmcp_integration():
     # Verify middleware transformations
     assert request["auth_token"] == "demo-token-123"  # Auth middleware added token
     assert response["authenticated"] is True          # Auth middleware marked as authenticated
-    assert response["logged_at"] == "2024-01-01T00:00:00Z"  # Logging middleware added timestamp
+    assert "logged_at" in response                    # Logging middleware added timestamp
     assert response["server"] == "demo_db"            # External server processed request
     
     # Step 5: Create FastMCPServer (demonstrates bridge to FastMCP)
@@ -108,8 +109,8 @@ def test_complete_fastmcp_integration():
         # This demonstrates the serve function working with our complete chain
         serve(chain, name="demo-mcp-server", transport="stdio")
         
-        # Verify serve() created FastMCPServer with our chain
-        mock_fastmcp_class.assert_called_once_with(chain)
+        # Verify serve() created FastMCPServer with our chain and name
+        mock_fastmcp_class.assert_called_once_with(chain, name="demo-mcp-server")
         mock_server.run.assert_called_once_with(name="demo-mcp-server", transport="stdio")
     
     print("✅ FastMCP Integration Success!")

@@ -4,9 +4,9 @@ The Ruby Rack equivalent for MCP (Model Context Protocol) servers - a composable
 
 ## Status
 
-**🚧 Alpha Release - Core functionality implemented with TDD**
+**🚀 Production Ready - Built with FastMCP Integration**
 
-MCP Chain provides a **middleware MCP server** architecture that acts as a transparent proxy between MCP clients and downstream MCP servers, while being itself a fully compliant MCP server.
+MCP Chain provides a **middleware MCP server** architecture that acts as a transparent proxy between MCP clients and downstream MCP servers, while being itself a fully compliant MCP server. Now powered by the official [FastMCP](https://github.com/modelcontextprotocol/python-sdk) framework for maximum compatibility and performance.
 
 ## 🚀 Quickstart
 
@@ -18,9 +18,10 @@ Create a simple proxy to an existing MCP server:
 
 ```python
 # simple_proxy.py
-from mcp_chain import mcp_chain, ExternalMCPServer
+from mcp_chain import mcp_chain, ExternalMCPServer, serve
 
 chain = mcp_chain().then(ExternalMCPServer("postgres", "postgres-mcp"))
+serve(chain, name="Postgres Proxy")
 ```
 
 ```bash
@@ -33,7 +34,7 @@ Add authentication middleware to any MCP server:
 
 ```python
 # auth_proxy.py
-from mcp_chain import mcp_chain, ExternalMCPServer
+from mcp_chain import mcp_chain, ExternalMCPServer, serve
 
 def require_auth(next_server, request_dict):
     if not request_dict.get("auth_token"):
@@ -43,6 +44,8 @@ def require_auth(next_server, request_dict):
 chain = (mcp_chain()
          .then(None, require_auth)  # None = no metadata transformer
          .then(ExternalMCPServer("postgres", "postgres-mcp")))
+
+serve(chain, name="Authenticated Postgres")
 ```
 
 ```bash
@@ -55,7 +58,7 @@ Log all requests and responses:
 
 ```python
 # logging_proxy.py
-from mcp_chain import mcp_chain, ExternalMCPServer
+from mcp_chain import mcp_chain, ExternalMCPServer, serve
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -70,6 +73,8 @@ def log_requests(next_server, request_dict):
 chain = (mcp_chain()
          .then(None, log_requests)
          .then(ExternalMCPServer("postgres", "postgres-mcp")))
+
+serve(chain, name="Logged Postgres")
 ```
 
 ```bash
@@ -82,7 +87,7 @@ Make generic tools company-specific:
 
 ```python
 # company_proxy.py
-from mcp_chain import mcp_chain, ExternalMCPServer
+from mcp_chain import mcp_chain, ExternalMCPServer, serve
 
 def add_company_context(next_server, metadata_dict):
     metadata = next_server.get_metadata()
@@ -93,6 +98,8 @@ def add_company_context(next_server, metadata_dict):
 chain = (mcp_chain()
          .then(add_company_context, None)  # None = no request transformer  
          .then(ExternalMCPServer("postgres", "postgres-mcp")))
+
+serve(chain, name="ACME Postgres")
 ```
 
 ```bash
@@ -105,7 +112,7 @@ Stack authentication, logging, and context enrichment:
 
 ```python
 # full_proxy.py
-from mcp_chain import mcp_chain, ExternalMCPServer
+from mcp_chain import mcp_chain, ExternalMCPServer, serve
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -134,6 +141,8 @@ def auth_and_log(next_server, request_dict):
 chain = (mcp_chain()
          .then(add_company_context, auth_and_log)
          .then(ExternalMCPServer("postgres", "postgres-mcp")))
+
+serve(chain, name="Full-Stack ACME Postgres")
 ```
 
 ```bash
@@ -154,113 +163,187 @@ proxy = mcp_chain().then(...)
 
 **That's it!** Create a Python file with a chain definition and run it with `uvx mcp-chain filename.py`. No installation, no setup, no boilerplate.
 
+### Installation
+
+For production use or development, you can install MCP Chain directly:
+
+```bash
+# Install with pip
+pip install mcp-chain
+
+# Install with uv
+uv add mcp-chain
+
+# Install for development
+git clone https://github.com/ronie-uliana/mcp-chain
+cd mcp-chain
+uv install
+```
+
+## FastMCP Integration Benefits 🚀
+
+MCP Chain is now powered by the official [FastMCP](https://python-sdk.docs.modelcontextprotocol.io/) framework, providing:
+
+### **🏎️ High Performance**
+- **Zero JSON Overhead**: Internal processing uses Python dictionaries instead of JSON serialization/deserialization
+- **Efficient Protocol Handling**: Built on the official MCP SDK for optimal client communication
+- **Streaming Support**: Full support for MCP streaming capabilities where available
+
+### **🔒 Full Protocol Compliance**
+- **Official MCP SDK**: Uses the same SDK that powers other production MCP servers
+- **Complete MCP Support**: Tools, resources, prompts, sampling, and all protocol features
+- **Transport Agnostic**: Works with STDIO, HTTP, and any transport supported by FastMCP
+
+### **🧩 Seamless Integration**
+- **Decorator-Style API**: Internally converts your middleware to FastMCP's decorator pattern
+- **Dynamic Registration**: Tools and resources are automatically discovered from your middleware chain
+- **Type Safety**: Full type annotations for better development experience
+
+### **🎯 Simple Migration**
+Existing middleware continues to work unchanged:
+
+```python
+# Your existing middleware works as-is
+def my_middleware(next_server, request_dict):
+    # Transform request
+    response = next_server.handle_request(request_dict)
+    # Transform response
+    return response
+
+# Just add serve() to start the server
+from mcp_chain import serve
+serve(my_chain, name="My Server")
+```
+
+## Programmatic Usage
+
+You can also use the `serve()` function directly in your Python programs:
+
+```python
+from mcp_chain import mcp_chain, ExternalMCPServer, serve
+
+def auth_middleware(next_server, request_dict):
+    # Add your authentication logic
+    if not request_dict.get("auth_token"):
+        return {"error": "Authentication required", "code": 401}
+    return next_server.handle_request(request_dict)
+
+# Build your chain
+chain = (mcp_chain()
+         .then(None, auth_middleware)
+         .then(ExternalMCPServer("postgres", "postgres-mcp")))
+
+# Start server programmatically 
+serve(chain, name="Authenticated Postgres", port=8000)
+```
+
 ## Detailed Usage
 
 ```python
-from mcp_chain import mcp_chain
+from mcp_chain import mcp_chain, serve
 
-# Create a basic chain
-def add_auth_header(next_mcp, json_request: str) -> str:
-    import json
+# Create middleware functions that work with Python dictionaries
+def add_auth_header(next_server, request_dict):
     # Transform the incoming request by adding auth header
-    request = json.loads(json_request)
-    request["headers"] = {"Authorization": "Bearer token123"}
+    request_dict["headers"] = {"Authorization": "Bearer token123"}
     
-    # Forward the modified request to next_mcp and return response
-    response = next_mcp.handle_request(json.dumps(request))
+    # Forward the modified request to next server and return response
+    response = next_server.handle_request(request_dict)
     # Could modify response here if needed
     return response
 
-def add_company_context(next_mcp, json_metadata: str) -> str:
+def add_company_context(next_server, metadata_dict):
     # Get metadata from downstream MCP server
-    original_metadata = next_mcp.get_metadata()
-    metadata = json.loads(original_metadata)
+    metadata = next_server.get_metadata()
     # Transform the metadata by adding company context
     for tool in metadata.get("tools", []):
         tool["description"] = f"Company Tool: {tool.get('description', '')}"
-    return json.dumps(metadata)
+    return metadata
 
 # Build the chain: client → transformers → your_mcp_server
 chain = (mcp_chain()
          .then(add_company_context, add_auth_header)
          .then(your_mcp_server))
 
-# Use like any MCP server
-# 1. client calls chain.get_metadata() 
-#    → add_company_context calls your_mcp_server.get_metadata()
-#    → adds "Company Tool:" prefix → returns to client
-metadata = chain.get_metadata()
-
-# 2. client calls chain.handle_request()
-#    → add_auth_header adds Authorization header
-#    → calls your_mcp_server.handle_request() with modified request
-#    → returns response to client
-response = chain.handle_request('{"method": "tools/call", "params": {...}}')
+# Start the server using FastMCP
+serve(chain, name="Company MCP Server")
 ```
 
 ## Core Concepts
 
 1. **Transparent MCP Proxy** - Each middleware appears as a standard MCP server to clients, but forwards requests to downstream MCP servers
-2. **Request/Response Transformation** - Middleware can modify MCP messages in both directions (client→server and server→client)
-3. **Metadata Manipulation** - Can alter tool descriptions, server capabilities, resource listings, and other MCP metadata
-4. **Full MCP Compliance** - Each middleware implements the complete MCP protocol, making chains transparent to clients
-5. **Composable Architecture** - Middleware can chain together since each middleware is just another MCP server
+2. **Dict-Based Processing** - All internal processing uses Python dictionaries instead of JSON strings for maximum performance
+3. **Request/Response Transformation** - Middleware can modify MCP messages in both directions (client→server and server→client)
+4. **Metadata Manipulation** - Can alter tool descriptions, server capabilities, resource listings, and other MCP metadata
+5. **Full MCP Compliance** - Built on the official FastMCP SDK for complete protocol support
+6. **Composable Architecture** - Middleware can chain together since each middleware is just another MCP server
 
 ## Architecture
 
-MCP Chain uses a functional middleware approach where each layer in the chain:
+MCP Chain uses a functional middleware approach powered by FastMCP where each layer in the chain:
 
 1. **Receives** requests from the previous layer (or client)
-2. **Transforms** the request/metadata as needed
+2. **Transforms** the request/metadata as needed (using Python dicts)
 3. **Forwards** to the next layer (or downstream server)
 4. **Receives** the response back
 5. **Transforms** the response as needed
 6. **Returns** to the previous layer (or client)
 
 ```
-Client → mcp_chain() → transformer_middleware → downstream_server
-                   ↑                         ↓
-                   ← ← ← response ← ← ← ← ← ← ←
+MCP Client → FastMCP → mcp_chain() → transformer_middleware → downstream_server
+         ↑                      ↑                         ↓
+         ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← response ← ← ← ← ← ← ←
 ```
+
+**Key Benefits:**
+- **Zero JSON Overhead**: FastMCP handles client protocol, middleware uses Python dicts internally
+- **Official Compliance**: Built on the official MCP SDK for guaranteed protocol compliance
+- **High Performance**: No serialization/deserialization in the middleware chain
 
 ## Current Implementation
 
 ### ✅ Implemented Features
 
+- **FastMCP Integration** - Built on the official MCP SDK for full protocol compliance
 - **Core chaining infrastructure** - `mcp_chain()` factory and `then()` method
-- **Raw transformer support** - Functions that work directly with JSON strings
+- **Dict-based transformers** - Functions that work directly with Python dictionaries
 - **Metadata transformation** - Modify tool descriptions, capabilities, etc.
 - **Request/response transformation** - Modify requests and responses in both directions
+- **Dynamic registration** - Tools and resources automatically registered from metadata
 - **Error handling** - Proper errors when no downstream server is configured
-- **Type safety** - Full TypeScript-style type annotations for Python
+- **Type safety** - Full type annotations with DictMCPServer protocol
+- **serve() function** - Easy programmatic server startup
 
-### 🔄 Current API
+### 🚀 Current API
 
 ```python
-# Raw transformers (work with JSON strings)
-def metadata_transformer(next_mcp, json_metadata: str) -> str:
+# Dict-based transformers (work with Python dictionaries)
+def metadata_transformer(next_server, metadata_dict):
     # Get metadata from downstream and transform it
-    # Note: The json_metadata argument can be used to communicate 
-    # with downstream middleware, even though get_metadata() doesn't 
-    # have arguments in the MCP protocol
-    original_metadata = next_mcp.get_metadata()
-    # Transform and return
-    return modified_json
+    metadata = next_server.get_metadata()
+    # Transform and return (Python dict, no JSON)
+    for tool in metadata.get("tools", []):
+        tool["description"] = f"Enhanced: {tool.get('description', '')}"
+    return metadata
 
-def request_transformer(next_mcp, json_request: str) -> str:
-    # Transform request
-    modified_request = transform_request(json_request)
+def request_transformer(next_server, request_dict):
+    # Transform request (Python dict)
+    request_dict["enhanced"] = True
     
     # Forward request to downstream and get response
-    response = next_mcp.handle_request(modified_request)
+    response = next_server.handle_request(request_dict)
     
-    # Transform response and return
-    return transform_response(response)
+    # Transform response and return (Python dict)
+    response["processed"] = True
+    return response
 
-# Chain building
+# Chain building and serving
 chain = (mcp_chain()
          .then(metadata_transformer, request_transformer)  # Add transformers
          .then(downstream_server))                         # Add downstream server
+
+# Start the server using FastMCP
+serve(chain, name="Enhanced MCP Server")
 ```
 
 ## Use Cases

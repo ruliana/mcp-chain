@@ -5,11 +5,12 @@ from .fastmcp import FastMCPServer
 from .types import DictMCPServer
 
 
-def serve(chain: DictMCPServer, **kwargs) -> Any:
+def serve(chain: DictMCPServer, name: str = "mcp-chain", **kwargs) -> Any:
     """Start an MCP server using FastMCP with the given middleware chain.
     
     Args:
         chain: The middleware chain that implements DictMCPServer protocol
+        name: Name of the MCP server
         **kwargs: Additional arguments passed to FastMCP.run()
         
     Returns:
@@ -22,8 +23,8 @@ def serve(chain: DictMCPServer, **kwargs) -> Any:
     if not hasattr(chain, 'get_metadata') or not hasattr(chain, 'handle_request'):
         raise TypeError("Chain must implement DictMCPServer protocol (get_metadata and handle_request methods)")
     
-    # Create FastMCPServer adapter
-    server = FastMCPServer(chain)
+    # Create FastMCPServer adapter with the server name
+    server = FastMCPServer(chain, name=name)
     
-    # Start the server
-    return server.run(**kwargs)
+    # Start the server (name will be filtered out in run method)
+    return server.run(name=name, **kwargs)

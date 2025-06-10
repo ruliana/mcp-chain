@@ -18,3 +18,36 @@ mcp-chain = "mcp_chain.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.8.2",
+    "pytest-cov>=6.1.1",
+]
+
+[tool.coverage.run]
+source = ["src", "."]
+omit = [
+    "tests/*",
+    ".venv/*", 
+    "__pycache__/*",
+    "*.egg-info/*",
+    ".git/*",
+    ".pytest_cache/*"
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"

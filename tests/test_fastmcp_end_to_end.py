@@ -112,8 +112,8 @@ def test_serve_function_with_complete_chain(mock_fastmcp_server_class):
     # Test serve function
     serve(chain, name="test-mcp-server", transport="stdio")
     
-    # Should create FastMCPServer with our chain
-    mock_fastmcp_server_class.assert_called_once_with(chain)
+    # Should create FastMCPServer with our chain and name
+    mock_fastmcp_server_class.assert_called_once_with(chain, name="test-mcp-server")
     # Should call run with the provided arguments
     mock_server_instance.run.assert_called_once_with(name="test-mcp-server", transport="stdio")
 

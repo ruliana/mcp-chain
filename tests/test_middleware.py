@@ -39,68 +39,88 @@ def test_middleware_basic_proxy():
 
 def test_middleware_no_downstream_error():
     """Test that middleware raises error when no downstream server."""
-    middleware = MiddlewareMCPServer()
-    
-    with pytest.raises(ValueError, match="No downstream server configured"):
-        middleware.get_metadata()
-    
-    with pytest.raises(ValueError, match="No downstream server configured"):
-        middleware.handle_request('{"method": "test"}')
+    # MiddlewareMCPServer now requires downstream in constructor
+    with pytest.raises(TypeError):
+        middleware = MiddlewareMCPServer()
 
 
-def test_middleware_raw_metadata_transformer():
-    """Test middleware with raw metadata transformer."""
-    metadata = {"tools": [{"name": "test_tool", "description": "original"}]}
-    downstream = MockMCPServer(metadata, {})
+def test_middleware_dict_metadata_transformer():
+    """Test middleware with dict metadata transformer."""
+    # Create a mock dict-based downstream server
+    class MockDictServer:
+        def get_metadata(self):
+            return {"tools": [{"name": "test_tool", "description": "original"}]}
+        def handle_request(self, request):
+            return {"result": "success"}
     
-    def transform_metadata(next_mcp, json_metadata: str) -> str:
-        # Get metadata from next_mcp
-        original_metadata = next_mcp.get_metadata()
-        data = json.loads(original_metadata)
-        for tool in data.get("tools", []):
+    downstream = MockDictServer()
+    
+    def transform_metadata(next_server, metadata_dict):
+        # Get metadata from next_server
+        original_metadata = next_server.get_metadata()
+        modified = original_metadata.copy()
+        for tool in modified.get("tools", []):
             tool["description"] = "transformed: " + tool.get("description", "")
-        return json.dumps(data)
+        return modified
     
     middleware = MiddlewareMCPServer(
         downstream_server=downstream,
-        raw_metadata_transformer=transform_metadata
+        metadata_transformer=transform_metadata
     )
     
-    result = json.loads(middleware.get_metadata())
+    result = middleware.get_metadata()
     expected = {"tools": [{"name": "test_tool", "description": "transformed: original"}]}
     assert result == expected
 
 
-def test_middleware_raw_request_transformer():
-    """Test middleware with raw request transformer."""
-    downstream = MockMCPServer({}, {"result": "original"})
+def test_middleware_dict_request_transformer():
+    """Test middleware with dict request transformer."""
+    # Create a mock dict-based downstream server
+    class MockDictServer:
+        def get_metadata(self):
+            return {"tools": []}
+        def handle_request(self, request):
+            return {"result": "original", "received": request}
     
-    def transform_request(next_mcp, json_request: str) -> str:
-        request = json.loads(json_request)
-        request["transformed"] = True
+    downstream = MockDictServer()
+    
+    def transform_request(next_server, request_dict):
+        # Transform request
+        modified_request = request_dict.copy()
+        modified_request["transformed"] = True
         
-        # Get response from next_mcp
-        actual_response = next_mcp.handle_request(json.dumps(request))
-        response = json.loads(actual_response)
-        response["response_transformed"] = True
-        return json.dumps(response)
+        # Get response from next_server
+        response = next_server.handle_request(modified_request)
+        
+        # Transform response
+        modified_response = response.copy()
+        modified_response["response_transformed"] = True
+        return modified_response
     
     middleware = MiddlewareMCPServer(
         downstream_server=downstream,
-        raw_request_transformer=transform_request
+        request_transformer=transform_request
     )
     
     # The downstream should receive the transformed request
     # and we should get back the transformed response
-    result = json.loads(middleware.handle_request('{"method": "test"}'))
-    expected = {"result": "original", "response_transformed": True}
-    assert result == expected
+    result = middleware.handle_request({"method": "test"})
+    assert result["result"] == "original"
+    assert result["response_transformed"] is True
+    assert result["received"]["transformed"] is True
+    assert result["received"]["method"] == "test"
 
 
 def test_then_with_downstream_server():
     """Test .then() method with downstream server."""
-    metadata = {"tools": [{"name": "test_tool"}]}
-    downstream = MockMCPServer(metadata, {})
+    # Create a dict-based downstream server
+    class MockDictServer:
+        def get_metadata(self):
+            return {"tools": [{"name": "test_tool"}]}
+        def handle_request(self, request):
+            return {"result": "success"}
+    
+    downstream = MockDictServer()
     
     # Use mcp_chain() to create the chain and add downstream server
     from mcp_chain import mcp_chain
@@ -108,56 +128,72 @@ def test_then_with_downstream_server():
     
     # Should return the downstream server directly (since no transformers)
     assert chained == downstream
-    assert json.loads(chained.get_metadata()) == metadata
+    assert chained.get_metadata() == {"tools": [{"name": "test_tool"}]}
 
 
 def test_then_with_porcelain_metadata_transformer():
     """Test .then() method with porcelain metadata transformer."""
-    metadata = {"tools": [{"name": "test_tool", "description": "original"}]}
-    downstream = MockMCPServer(metadata, {})
+    # Create a dict-based downstream server
+    class MockDictServer:
+        def get_metadata(self):
+            return {"tools": [{"name": "test_tool", "description": "original"}]}
+        def handle_request(self, request):
+            return {"result": "success"}
     
-    def transform_metadata(next_mcp, metadata_dict: dict) -> dict:
-        # Porcelain transformer works with dict directly
-        result = metadata_dict.copy()
+    downstream = MockDictServer()
+    
+    def transform_metadata(next_server, metadata_dict: dict) -> dict:
+        # Get metadata from downstream and transform it
+        original = next_server.get_metadata()
+        result = original.copy()
         for tool in result.get("tools", []):
             tool["description"] = "transformed: " + tool.get("description", "")
         return result
     
-    def identity_request_transformer(next_mcp, request_dict: dict) -> dict:
+    def identity_request_transformer(next_server, request_dict: dict) -> dict:
         # Simple passthrough for request
-        return request_dict
+        return next_server.handle_request(request_dict)
     
     # Use mcp_chain() to create the chain with transformers and downstream
     from mcp_chain import mcp_chain, MiddlewareMCPServer
     chained = mcp_chain().then(transform_metadata, identity_request_transformer).then(downstream)
     
     assert isinstance(chained, MiddlewareMCPServer)
-    result = json.loads(chained.get_metadata())
+    result = chained.get_metadata()
     expected = {"tools": [{"name": "test_tool", "description": "transformed: original"}]}
     assert result == expected
 
 
 def test_then_with_porcelain_request_transformer():
     """Test .then() method with porcelain request transformer."""
-    downstream = MockMCPServer({}, {"result": "original"})
+    # Create a dict-based downstream server
+    class MockDictServer:
+        def get_metadata(self):
+            return {"tools": []}
+        def handle_request(self, request):
+            return {"result": "original", "received": request}
     
-    def identity_metadata_transformer(next_mcp, metadata_dict: dict) -> dict:
+    downstream = MockDictServer()
+    
+    def identity_metadata_transformer(next_server, metadata_dict: dict) -> dict:
         # Simple passthrough for metadata
-        return metadata_dict
+        return next_server.get_metadata()
     
-    def transform_request(next_mcp, request_dict: dict) -> dict:
-        # Porcelain transformer works with dict directly
+    def transform_request(next_server, request_dict: dict) -> dict:
+        # Transform request and call downstream
         modified_request = {**request_dict, "transformed": True}
-        return modified_request
+        return next_server.handle_request(modified_request)
     
     # Use mcp_chain() to create the chain with transformers and downstream
     from mcp_chain import mcp_chain, MiddlewareMCPServer
     chained = mcp_chain().then(identity_metadata_transformer, transform_request).then(downstream)
     
     assert isinstance(chained, MiddlewareMCPServer)
-    result = json.loads(chained.handle_request('{"method": "test"}'))
-    expected = {"method": "test", "transformed": True}  # Should reflect the transformed request
-    assert result == {"result": "original"}  # But response comes from downstream unchanged
+    result = chained.handle_request({"method": "test"})
+    # Should show that the request was transformed before reaching downstream
+    assert result["result"] == "original"
+    assert result["received"]["method"] == "test"
+    assert result["received"]["transformed"] is True
 
 
 def test_then_with_raw_transformers():

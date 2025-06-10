@@ -41,8 +41,8 @@ def test_serve_creates_fastmcp_server(mock_fastmcp_server_class):
     
     serve(mock_chain, name="test-server")
     
-    # Should have created FastMCPServer with our chain
-    mock_fastmcp_server_class.assert_called_once_with(mock_chain)
+    # Should have created FastMCPServer with our chain and name
+    mock_fastmcp_server_class.assert_called_once_with(mock_chain, name="test-server")
     # Should have called run on the server
     mock_server_instance.run.assert_called_once()
 
@@ -73,8 +73,8 @@ def test_serve_with_minimal_args(mock_fastmcp_server_class):
     # Should work with just a chain
     serve(mock_chain)
     
-    mock_fastmcp_server_class.assert_called_once_with(mock_chain)
-    mock_server_instance.run.assert_called_once_with()
+    mock_fastmcp_server_class.assert_called_once_with(mock_chain, name="mcp-chain")
+    mock_server_instance.run.assert_called_once_with(name="mcp-chain")
 
 
 def test_serve_validates_chain_is_dict_mcp_server():

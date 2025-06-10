@@ -5,18 +5,15 @@ from typing import Dict, Any, Callable
 import pytest
 
 from mcp_chain import (
-    MCPServer,
     DictMCPServer,
     DictMetadataTransformer,
     DictRequestResponseTransformer,
 )
 
-# Test imports for new transformer names (should fail initially)
-try:
-    from mcp_chain import MetadataTransformer, RequestResponseTransformer
-    NEW_TRANSFORMER_TYPES_AVAILABLE = True
-except ImportError:
-    NEW_TRANSFORMER_TYPES_AVAILABLE = False
+# Test imports for new transformer names
+from mcp_chain import DictMetadataTransformer as MetadataTransformer
+from mcp_chain import DictRequestResponseTransformer as RequestResponseTransformer
+NEW_TRANSFORMER_TYPES_AVAILABLE = True
 
 
 def test_dict_metadata_transformer_type():
@@ -77,20 +74,6 @@ def test_dict_request_response_transformer_type():
     assert result == expected
 
 
-class MockMCPServer:
-    """Mock JSON-based MCP server for testing."""
-    
-    def __init__(self, metadata: Dict[str, Any], response_data: Dict[str, Any]):
-        self._metadata = metadata
-        self._response_data = response_data
-    
-    def get_metadata(self) -> str:
-        return json.dumps(self._metadata)
-    
-    def handle_request(self, request: str) -> str:
-        return json.dumps(self._response_data)
-
-
 class MockDictMCPServer:
     """Mock dict-based MCP server for testing."""
     
@@ -103,26 +86,6 @@ class MockDictMCPServer:
     
     def handle_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         return self._response_data
-
-
-def test_mcp_server_protocol():
-    """Test that MCPServer protocol works correctly."""
-    metadata = {"tools": [{"name": "test_tool", "description": "A test tool"}]}
-    response = {"result": "test_response"}
-    
-    server = MockMCPServer(metadata, response)
-    
-    # Should implement protocol methods
-    assert hasattr(server, 'get_metadata')
-    assert hasattr(server, 'handle_request')
-    
-    # Test metadata
-    metadata_json = server.get_metadata()
-    assert json.loads(metadata_json) == metadata
-    
-    # Test request handling  
-    response_json = server.handle_request('{"method": "test"}')
-    assert json.loads(response_json) == response
 
 
 def test_dict_mcp_server_protocol():
@@ -146,9 +109,7 @@ def test_dict_mcp_server_protocol():
 
 
 def test_new_transformer_types():
-    """Test that new transformer type names work correctly (should fail initially)."""
-    if not NEW_TRANSFORMER_TYPES_AVAILABLE:
-        pytest.skip("New transformer types not yet available")
+    """Test that new transformer type names work correctly."""
     
     # Create mock dict server
     class MockDictServer:

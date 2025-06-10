@@ -37,7 +37,7 @@ def test_external_mcp_server_has_get_metadata(mock_popen):
     
     metadata = server.get_metadata()
     
-    assert isinstance(metadata, str)
+    assert isinstance(metadata, dict)
 
 
 @patch('subprocess.Popen')
@@ -61,9 +61,9 @@ def test_external_mcp_server_has_handle_request(mock_popen):
     
     server = ExternalMCPServer("test-server", "echo", ["hello"])
     
-    response = server.handle_request('{"method": "test"}')
+    response = server.handle_request({"method": "test"})
     
-    assert isinstance(response, str)
+    assert isinstance(response, dict)
 
 
 def test_external_mcp_server_takes_command_and_args():
@@ -127,8 +127,7 @@ def test_external_mcp_server_get_metadata_calls_tools_list(mock_popen):
     ]
     
     server = ExternalMCPServer("test-server", "echo", ["hello"])
-    metadata_str = server.get_metadata()
-    metadata = json.loads(metadata_str)
+    metadata = server.get_metadata()
     
     assert "tools" in metadata
     assert len(metadata["tools"]) == 1
@@ -157,8 +156,7 @@ def test_external_mcp_server_handle_request_forwards_to_external(mock_popen):
     server = ExternalMCPServer("test-server", "echo", ["hello"])
     
     test_request = {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {}}
-    response_str = server.handle_request(json.dumps(test_request))
-    response = json.loads(response_str)
+    response = server.handle_request(test_request)
     
     assert response["jsonrpc"] == "2.0"
     assert response["id"] == 3
@@ -175,14 +173,20 @@ def test_external_mcp_server_handles_invalid_json(mock_popen):
     mock_process.poll.return_value = None
     mock_popen.return_value = mock_process
     
-    # Mock init response
+    # Mock init response and error response for invalid request
     init_response = {"jsonrpc": "2.0", "id": 1, "result": {}}
-    mock_process.stdout.readline.return_value = json.dumps(init_response) + "\n"
+    error_response = {"jsonrpc": "2.0", "id": 1, "error": {"code": -32700, "message": "Parse error"}}
+    
+    mock_process.stdout.readline.side_effect = [
+        json.dumps(init_response) + "\n",
+        json.dumps(error_response) + "\n"
+    ]
     
     server = ExternalMCPServer("test-server", "echo", ["hello"])
     
-    response_str = server.handle_request("invalid json")
-    response = json.loads(response_str)
+    # Test is no longer valid since we now pass dicts, not JSON strings
+    # Instead test with invalid dict structure
+    response = server.handle_request({"invalid": "structure"})
     
     assert "error" in response
     assert response["error"]["code"] == -32700
@@ -225,4 +229,4 @@ def test_external_mcp_server_can_be_used_in_chain(mock_popen):
     
     # Should be able to call get_metadata
     metadata = chain.get_metadata()
-    assert isinstance(metadata, str)
+    assert isinstance(metadata, dict)
