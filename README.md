@@ -8,7 +8,153 @@ The Ruby Rack equivalent for MCP (Model Context Protocol) servers - a composable
 
 MCP Chain provides a **middleware MCP server** architecture that acts as a transparent proxy between MCP clients and downstream MCP servers, while being itself a fully compliant MCP server.
 
-## Quick Start
+## 🚀 Quickstart
+
+Get started in 30 seconds with `uvx` - no installation required!
+
+### Simple Proxy
+
+Create a simple proxy to an existing MCP server:
+
+```python
+# simple_proxy.py
+from mcp_chain import mcp_chain, ExternalMCPServer
+
+chain = mcp_chain().then(ExternalMCPServer("postgres", "postgres-mcp"))
+```
+
+```bash
+uvx mcp-chain simple_proxy.py
+```
+
+### Add Authentication
+
+Add authentication middleware to any MCP server:
+
+```python
+# auth_proxy.py
+from mcp_chain import mcp_chain, ExternalMCPServer
+
+def require_auth(next_server, request_dict):
+    if not request_dict.get("auth_token"):
+        return {"error": "Authentication required", "code": 401}
+    return next_server.handle_request(request_dict)
+
+chain = (mcp_chain()
+         .then(None, require_auth)  # None = no metadata transformer
+         .then(ExternalMCPServer("postgres", "postgres-mcp")))
+```
+
+```bash
+uvx mcp-chain auth_proxy.py
+```
+
+### Add Request Logging
+
+Log all requests and responses:
+
+```python
+# logging_proxy.py
+from mcp_chain import mcp_chain, ExternalMCPServer
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("mcp-proxy")
+
+def log_requests(next_server, request_dict):
+    logger.info(f"Request: {request_dict.get('method', 'unknown')}")
+    response = next_server.handle_request(request_dict)
+    logger.info(f"Response: {response.get('result', response.get('error'))}")
+    return response
+
+chain = (mcp_chain()
+         .then(None, log_requests)
+         .then(ExternalMCPServer("postgres", "postgres-mcp")))
+```
+
+```bash
+uvx mcp-chain logging_proxy.py
+```
+
+### Transform Tool Descriptions
+
+Make generic tools company-specific:
+
+```python
+# company_proxy.py
+from mcp_chain import mcp_chain, ExternalMCPServer
+
+def add_company_context(next_server, metadata_dict):
+    metadata = next_server.get_metadata()
+    for tool in metadata.get("tools", []):
+        tool["description"] = f"ACME Corp: {tool.get('description', '')}"
+    return metadata
+
+chain = (mcp_chain()
+         .then(add_company_context, None)  # None = no request transformer  
+         .then(ExternalMCPServer("postgres", "postgres-mcp")))
+```
+
+```bash
+uvx mcp-chain company_proxy.py
+```
+
+### Chain Multiple Middlewares
+
+Stack authentication, logging, and context enrichment:
+
+```python
+# full_proxy.py
+from mcp_chain import mcp_chain, ExternalMCPServer
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("mcp-proxy")
+
+def add_company_context(next_server, metadata_dict):
+    metadata = next_server.get_metadata()
+    for tool in metadata.get("tools", []):
+        tool["description"] = f"ACME Corp: {tool.get('description', '')}"
+    return metadata
+
+def auth_and_log(next_server, request_dict):
+    # Auth check
+    if not request_dict.get("auth_token"):
+        return {"error": "Authentication required", "code": 401}
+    
+    # Log request
+    logger.info(f"Authenticated request: {request_dict.get('method')}")
+    
+    # Forward and log response
+    response = next_server.handle_request(request_dict)
+    logger.info(f"Response: {response.get('result', response.get('error'))}")
+    
+    return response
+
+chain = (mcp_chain()
+         .then(add_company_context, auth_and_log)
+         .then(ExternalMCPServer("postgres", "postgres-mcp")))
+```
+
+```bash
+uvx mcp-chain full_proxy.py
+```
+
+### Auto-Detection Magic 🪄
+
+The CLI auto-detects your chain - any of these variable names work:
+
+```python
+# Any of these work:
+chain = mcp_chain().then(...)
+my_chain = mcp_chain().then(...)  
+server_chain = mcp_chain().then(...)
+proxy = mcp_chain().then(...)
+```
+
+**That's it!** Create a Python file with a chain definition and run it with `uvx mcp-chain filename.py`. No installation, no setup, no boilerplate.
+
+## Detailed Usage
 
 ```python
 from mcp_chain import mcp_chain

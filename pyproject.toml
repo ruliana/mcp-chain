@@ -9,7 +9,11 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "pytest>=8.4.0",
+    "mcp>=1.2.0",
 ]
+
+[project.scripts]
+mcp-chain = "mcp_chain.cli:main"
 
 [build-system]
 requires = ["hatchling"]

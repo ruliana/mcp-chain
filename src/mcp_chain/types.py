@@ -1,18 +1,6 @@
 """Type definitions and protocols for MCP Chain."""
 
-from typing import Protocol, Callable, Any, Dict, Union
-
-
-class MCPServer(Protocol):
-    """Protocol defining the interface for MCP servers (JSON-based for external clients)."""
-    
-    def get_metadata(self) -> str:
-        """Returns server metadata as JSON-RPC response."""
-        ...
-    
-    def handle_request(self, request: str) -> str:
-        """Handles JSON-RPC request and returns JSON-RPC response."""
-        ...
+from typing import Protocol, Callable, Any, Dict
 
 
 class DictMCPServer(Protocol):

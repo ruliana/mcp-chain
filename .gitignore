@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Temporary files and directories for AI
+.env
+TODO.md
+tmp/

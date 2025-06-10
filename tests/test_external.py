@@ -4,17 +4,7 @@ import pytest
 import json
 import subprocess
 from unittest.mock import Mock, patch
-from mcp_chain.config import MCPServerConfig
 from mcp_chain.external import ExternalMCPServer
-
-
-def test_mcp_server_config_stores_servers():
-    """Test that MCPServerConfig can store multiple server configurations."""
-    config = MCPServerConfig()
-    
-    config.add_server("test-server", {"command": "echo", "args": ["hello", "world"]})
-    
-    assert config.get_server("test-server") == {"command": "echo", "args": ["hello", "world"]}
 
 
 def test_external_mcp_server_creation():
