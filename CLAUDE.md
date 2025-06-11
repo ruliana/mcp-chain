@@ -33,33 +33,39 @@ This applies to bug fixes, new features, refactoring, and any code modifications
 
 ## Architecture Overview
 
-MCP Chain implements a **two-phase middleware architecture** for MCP (Model Context Protocol) servers:
+MCP Chain implements a **dict-based middleware architecture** with FastMCP integration for MCP (Model Context Protocol) servers:
 
 ### Phase 1: Chain Building (MCPChainBuilder)
 - `mcp_chain()` returns `MCPChainBuilder` - exists only during chain construction
 - Smart argument detection automatically detects transformers vs downstream servers
 - Self-replacement pattern: gets completely replaced when real downstream server is added
-- Located in `src/mcp_chain/dummy.py`
+- Located in `src/mcp_chain/builder.py`
 
 ### Phase 2: Runtime Execution (MiddlewareMCPServer)
-- Handles actual request/response processing through delegating pattern
+- Handles actual request/response processing through delegating pattern using **Python dicts**
 - `then()` method delegates to child and wraps result
 - Execution order is first-added-transformer-outermost
 - Located in `src/mcp_chain/middleware.py`
 
+### Phase 3: FastMCP Integration (FastMCPServer)
+- `serve(chain, name)` function starts MCP server using official MCP SDK
+- FastMCPServer adapter bridges dict-based middleware with FastMCP's decorator model
+- Automatic tool/resource registration from middleware metadata
+- Located in `src/mcp_chain/fastmcp.py` and `src/mcp_chain/serve.py`
+
 ### Chain Flow
 ```
-Client → MCPChainBuilder → MiddlewareMCPServer₁ → MiddlewareMCPServer₂ → downstream_server
-                       ↑                      ↑                      ↓
-                       ← ← ← ← ← ← ← ← ← ← ← ← ← ← response ← ← ← ← ← ←
+Client → FastMCP → FastMCPServer → MiddlewareMCPServer₁ → MiddlewareMCPServer₂ → downstream_server
+          ↑                     ↑                      ↑                      ↓
+          ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← response ← ← ← ← ← ←
 ```
 
 ## Key Components
 
 ### Types System (`src/mcp_chain/types.py`)
-- **MCPServer Protocol**: Core interface with `get_metadata()` and `handle_request()`
-- **Raw transformers**: Work with JSON strings (currently implemented)
-- **Porcelain transformers**: Work with Python dicts (planned, not yet implemented)
+- **DictMCPServer Protocol**: Core interface with `get_metadata()` and `handle_request()` using Python dicts
+- **Dict-based transformers**: All processing uses Python dictionaries for type safety and performance
+- **FastMCP Integration**: Bridges dict-based internal processing with MCP protocol compliance
 
 ### Transformer Architecture
 Transformers receive `next_mcp` as first parameter and control when/if to call downstream:
@@ -79,9 +85,15 @@ def request_transformer(next_mcp, json_request: str) -> str:
 
 ### Chain Building Pattern
 ```python
+from mcp_chain import mcp_chain, serve
+
+# Build middleware chain
 chain = (mcp_chain()
          .then(metadata_transformer, request_transformer)  # Add transformers
          .then(downstream_server))                         # Add downstream server
+
+# Start MCP server with FastMCP integration
+serve(chain, name="My MCP Server")
 ```
 
 ## Testing Approach

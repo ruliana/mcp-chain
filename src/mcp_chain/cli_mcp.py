@@ -1,40 +1,54 @@
 """CLI MCP server implementation that adapts CLI commands to MCP tools."""
 
 import subprocess
-import json
 import re
-import shlex
 from typing import Dict, Any, List, Optional
-from .types import DictMCPServer
 
 
 class CLIMCPServer:
     """MCP server that adapts CLI commands to MCP tools."""
     
-    def __init__(self, name: str, command: str, description: Optional[str] = None):
+    def __init__(self, name: str, command: Optional[str] = None, commands: Optional[List[str]] = None, description: Optional[str] = None, descriptions: Optional[Dict[str, str]] = None):
         """Initialize CLIMCPServer.
         
         Args:
             name: Name of the server
-            command: CLI command to expose as a tool
-            description: Optional description to override the one extracted from <command> -h
+            command: Single CLI command to expose as a tool (deprecated, use commands)
+            commands: List of CLI commands to expose as tools
+            description: Optional description to override the one extracted from <command> -h (deprecated, use descriptions)
+            descriptions: Dict mapping command names to custom descriptions
         """
         self.name = name
-        self.command = command
-        self.description = description
+        
+        # Handle both single command (backward compatibility) and multiple commands
+        if commands is not None:
+            self.commands = commands
+            self.command = commands[0] if commands else None  # For backward compatibility
+        elif command is not None:
+            self.command = command
+            self.commands = [command]
+        else:
+            raise ValueError("Either 'command' or 'commands' must be provided")
+            
+        # Handle both single description (backward compatibility) and multiple descriptions
+        self.descriptions = descriptions or {}
+        self.description = description  # Keep for backward compatibility
+        
         self._tool_metadata_cache: Dict[str, Dict[str, Any]] = {}
     
     def get_metadata(self) -> Dict[str, Any]:
-        """Returns server metadata with tool discovered from CLI command."""
+        """Returns server metadata with tools discovered from CLI commands."""
         tools = []
         
-        try:
-            tool_info = self._get_tool_info(self.command)
-            if tool_info:
-                tools.append(tool_info)
-        except Exception as e:
-            # If command can't be analyzed, still continue with empty tools
-            pass
+        # Process all commands in the list
+        for command in self.commands:
+            try:
+                tool_info = self._get_tool_info(command)
+                if tool_info:
+                    tools.append(tool_info)
+            except Exception as e:
+                # If command can't be analyzed, still continue with other commands
+                pass
         
         return {
             "tools": tools,
@@ -76,7 +90,8 @@ class CLIMCPServer:
         tool_name = params.get("name", "")
         arguments = params.get("arguments", {})
         
-        if tool_name != self.command:
+        # Check if tool_name is in the list of available commands
+        if tool_name not in self.commands:
             return {
                 "jsonrpc": "2.0",
                 "id": request_id,
@@ -184,8 +199,10 @@ class CLIMCPServer:
         
         help_text = self._get_help_text(command)
         
-        # Use override description if provided, otherwise extract from help text
-        if self.description:
+        # Use description from descriptions dict, then fallback to single description, then extract from help text
+        if command in self.descriptions:
+            description = self.descriptions[command]
+        elif self.description and len(self.commands) == 1:  # Only use single description for single command
             description = self.description
         elif help_text:
             description = self._extract_description(help_text, command)

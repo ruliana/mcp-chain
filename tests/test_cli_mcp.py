@@ -352,4 +352,120 @@ def test_fallback_to_help_text_when_no_override(mock_run):
     assert tool["description"] == "ls - list directory contents"
     
     # Verify help text was fetched
-    mock_run.assert_called() 
+    mock_run.assert_called()
+
+
+def test_cli_mcp_server_creation_with_multiple_commands():
+    """Test creating a CLIMCPServer with multiple commands."""
+    commands = ["git", "docker", "ls"]
+    server = CLIMCPServer("multi-cli", commands=commands)
+    
+    assert server.name == "multi-cli"
+    assert server.commands == commands
+    assert len(server.commands) == 3
+    assert "git" in server.commands
+    assert "docker" in server.commands
+    assert "ls" in server.commands 
+
+
+def test_cli_mcp_server_creation_with_descriptions_dict():
+    """Test creating a CLIMCPServer with multiple commands and custom descriptions."""
+    commands = ["git", "docker"]
+    descriptions = {
+        "git": "Custom Git description",
+        "docker": "Custom Docker description"
+    }
+    server = CLIMCPServer("multi-cli", commands=commands, descriptions=descriptions)
+    
+    assert server.name == "multi-cli"
+    assert server.commands == commands
+    assert server.descriptions == descriptions
+    assert server.descriptions["git"] == "Custom Git description"
+    assert server.descriptions["docker"] == "Custom Docker description" 
+
+
+def test_get_metadata_with_multiple_commands():
+    """Test that get_metadata returns multiple tools for multiple commands."""
+    commands = ["echo", "ls", "date"]
+    server = CLIMCPServer("multi-cli", commands=commands)
+    
+    metadata = server.get_metadata()
+    
+    assert len(metadata["tools"]) == 3
+    tool_names = [tool["name"] for tool in metadata["tools"]]
+    assert "echo" in tool_names
+    assert "ls" in tool_names
+    assert "date" in tool_names
+    assert metadata["server_name"] == "multi-cli" 
+
+
+@patch('subprocess.run')
+def test_descriptions_dict_overrides_in_metadata(mock_run):
+    """Test that descriptions dict overrides tool descriptions in metadata."""
+    # Mock help text for commands
+    mock_result = Mock()
+    mock_result.stdout = "echo - display a line of text\nUsage: echo [OPTION]... [STRING]..."
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+    mock_run.return_value = mock_result
+    
+    commands = ["echo", "ls"]
+    descriptions = {
+        "echo": "Custom echo tool description",
+        "ls": "Custom ls tool description"
+    }
+    server = CLIMCPServer("multi-cli", commands=commands, descriptions=descriptions)
+    
+    metadata = server.get_metadata()
+    
+    assert len(metadata["tools"]) == 2
+    
+    # Find tools by name and check descriptions
+    tools_by_name = {tool["name"]: tool for tool in metadata["tools"]}
+    
+    assert "echo" in tools_by_name
+    assert "ls" in tools_by_name
+    assert tools_by_name["echo"]["description"] == "Custom echo tool description"
+    assert tools_by_name["ls"]["description"] == "Custom ls tool description" 
+
+
+@patch('subprocess.run')
+def test_handle_tool_call_with_multiple_commands(mock_run):
+    """Test handling tool calls for specific commands when multiple commands are available."""
+    # Mock subprocess.run to capture the executed command
+    mock_result = Mock()
+    mock_result.stdout = "test output"
+    mock_result.stderr = ""
+    mock_result.returncode = 0
+    mock_run.return_value = mock_result
+    
+    commands = ["echo", "ls", "date"]
+    server = CLIMCPServer("multi-cli", commands=commands)
+    
+    # Test calling specific command (ls)
+    request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": "ls",
+            "arguments": {"_args": ["-l"]}
+        }
+    }
+    
+    response = server.handle_request(request)
+    
+    assert response["jsonrpc"] == "2.0"
+    assert response["id"] == 1
+    assert "result" in response
+    assert response["result"]["isError"] == False
+    assert "test output" in response["result"]["content"][0]["text"]
+    
+    # Verify the correct command was executed
+    mock_run.assert_called_with(
+        ["ls", "-l"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False
+    ) 
