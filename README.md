@@ -1,14 +1,6 @@
 # MCP Chain
 
-The Ruby Rack equivalent for MCP (Model Context Protocol) servers - a composable middleware framework for building sophisticated MCP server chains.
-
-## Status
-
-**🚀 Production Ready - Built with FastMCP Integration** ✅
-
-MCP Chain provides a **middleware MCP server** architecture that acts as a transparent proxy between MCP clients and downstream MCP servers, while being itself a fully compliant MCP server. Now powered by the official [FastMCP](https://github.com/modelcontextprotocol/python-sdk) framework for maximum compatibility and performance.
-
-**All 141 tests passing** - Comprehensive error handling, logging, and FastMCP integration complete.
+A composable middleware framework for building sophisticated MCP server chains inspired by Ruby Rack.
 
 ## 🚀 Quickstart
 
@@ -46,7 +38,7 @@ def require_auth(next_server, request_dict):
 chain = (mcp_chain()
          .then(None, require_auth)  # None = no metadata transformer
          .then(ExternalMCPServer("postgres", "postgres-mcp")))
-
+ 
 serve(chain, name="Authenticated Postgres")
 ```
 
@@ -167,19 +159,19 @@ proxy = mcp_chain().then(...)
 
 ### Installation
 
-For production use or development, you can install MCP Chain directly:
+For production use, the preferred method is to run your chain definition file directly with:
 
 ```bash
-# Install with pip
-pip install mcp-chain
+uvx mcp-chain my_chain.py
+```
 
-# Install with uv
-uv add mcp-chain
+For development, you can install MCP Chain directly:
 
+```bash
 # Install for development
 git clone https://github.com/ronie-uliana/mcp-chain
 cd mcp-chain
-uv install
+uv sync
 ```
 
 ## PyPI & CLI Usage
@@ -316,10 +308,18 @@ MCP Chain uses a functional middleware approach powered by FastMCP where each la
 5. **Transforms** the response as needed
 6. **Returns** to the previous layer (or client)
 
-```
-MCP Client → FastMCP → mcp_chain() → transformer_middleware → downstream_server
-         ↑                      ↑                         ↓
-         ← ← ← ← ← ← ← ← ← ← ← ← ← ← ← response ← ← ← ← ← ← ←
+```mermaid
+graph TD
+  A["MCP Client"] --> B["FastMCP"]
+  B --> C["mcp_chain()"]
+  C --> D1["transformer_middleware_1"]
+  D1 --> D2["transformer_middleware_2"]
+  D2 --> E["downstream_server"]
+  E -- "response" --> D2
+  D2 -- "response" --> D1
+  D1 -- "response" --> C
+  C -- "response" --> B
+  B -- "response" --> A
 ```
 
 **Key Benefits:**
@@ -425,14 +425,6 @@ Each middleware in the chain can transform the requests and responses as needed,
 - **Malformed Data Handling**: Gracefully handles invalid tool/resource metadata
 - **FastMCP Initialization Failures**: Proper error propagation for FastMCP setup issues
 
-### **Test Coverage**
-All 141 tests pass, covering:
-- ✅ FastMCP integration functionality
-- ✅ Error handling for all failure modes
-- ✅ Logging verification
-- ✅ Architecture compliance
-- ✅ Type safety validation
-- ✅ End-to-end integration testing
 
 ### **Performance & Reliability**
 - **Zero JSON Overhead**: Dict-based internal processing
@@ -471,9 +463,7 @@ All 141 tests are currently passing, providing comprehensive coverage of:
 To build and upload manually:
 
 ```bash
-hatch build
-python -m pip install --upgrade twine
-python -m twine upload dist/*
+uv build && uv publish
 ```
 
 Publishing is also automated via GitHub Actions on new releases (see .github/workflows/publish.yml).

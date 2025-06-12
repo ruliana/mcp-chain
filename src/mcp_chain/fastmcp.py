@@ -2,7 +2,7 @@
 
 import logging
 from typing import Dict, Any, Set
-from fastmcp import FastMCP
+from mcp.server.fastmcp import FastMCP
 from .types import DictMCPServer
 
 logger = logging.getLogger(__name__)
@@ -122,9 +122,18 @@ class FastMCPServer:
             tool_function.__doc__ = tool_description
             return tool_function
         
-        # Register the tool with FastMCP
+        # Register the tool with FastMCP using the decorator pattern
         tool_func = create_tool_function()
-        self._fastmcp.tool(tool_func)
+        # Use the decorator pattern instead of calling the method directly
+        decorated_func = self._fastmcp.tool()(tool_func)
+        
+        # Store the decorated function to ensure it's not garbage collected
+        if not hasattr(self, '_registered_tools'):
+            self._registered_tools = {}
+        self._registered_tools[tool_name] = decorated_func
+        
+        # Log successful tool registration
+        logger.info("Successfully registered tool '%s' with description: %s", tool_name, tool_description)
     
     def _register_resource(self, resource_data: Dict[str, Any]):
         """Register a single resource with FastMCP."""
