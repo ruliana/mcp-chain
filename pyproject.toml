@@ -19,6 +19,13 @@ mcp-chain = "mcp_chain.cli:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build]
+packages = ["mcp_chain"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_chain"]
+include = ["src/mcp_chain/py.typed"]
+
 [dependency-groups]
 dev = [
     "coverage>=7.8.2",

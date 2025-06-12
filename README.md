@@ -182,6 +182,24 @@ cd mcp-chain
 uv install
 ```
 
+## PyPI & CLI Usage
+
+Install from PyPI:
+
+```bash
+pip install mcp-chain
+```
+
+Run a chain definition file:
+
+```bash
+uvx mcp-chain my_chain.py
+# or
+python -m mcp_chain my_chain.py
+# or
+mcp-chain my_chain.py
+```
+
 ## FastMCP Integration Benefits 🚀
 
 MCP Chain is now powered by the official [FastMCP](https://python-sdk.docs.modelcontextprotocol.io/) framework, providing:
@@ -441,3 +459,21 @@ All 141 tests are currently passing, providing comprehensive coverage of:
 
 - [Design Document](design.md) - Detailed architecture and implementation notes
 - [Tests](tests/) - Comprehensive test suite showing usage patterns
+
+## CI/CD with GitHub Actions
+
+- All pushes and pull requests run the full test suite automatically.
+- On new releases, the package is built and published to PyPI.
+- See .github/workflows/ for workflow definitions.
+
+## Publishing to PyPI
+
+To build and upload manually:
+
+```bash
+hatch build
+python -m pip install --upgrade twine
+python -m twine upload dist/*
+```
+
+Publishing is also automated via GitHub Actions on new releases (see .github/workflows/publish.yml).
