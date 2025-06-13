@@ -75,15 +75,14 @@ def test_middleware_with_dict_request_transformer():
     
     # The downstream should have received the transformed request
     assert result["echoed_request"]["method"] == "test"
-    assert result["echoed_request"]["transformed"] == True
+    assert result["echoed_request"]["transformed"]
     
     # The response should also be transformed
-    assert result["response_transformed"] == True
+    assert result["response_transformed"]
 
 
 def test_correct_chaining_order():
     """Test the correct chaining order: mcp_chain().then(transformer).then(downstream) - RED test."""
-    import json
     from mcp_chain import mcp_chain
     
     # Create a mock downstream server
@@ -132,7 +131,6 @@ def test_mcp_chain_without_downstream_should_fail():
 
 def test_transformer_receives_next_mcp_parameter():
     """Test that transformers receive next_mcp as first parameter - RED test."""
-    import json
     from mcp_chain import mcp_chain
     
     # Create a mock downstream server
@@ -177,7 +175,6 @@ def test_transformer_receives_next_mcp_parameter():
 
 def test_transformer_controls_next_mcp_execution():
     """Test that transformers can decide when/if to call next_mcp - RED test."""
-    import json
     from mcp_chain import mcp_chain
     
     # Create a mock downstream server that tracks calls
@@ -241,7 +238,6 @@ def test_transformer_controls_next_mcp_execution():
 
 def test_request_flow_with_collector():
     """Test request flow through the chain using a collector - GREEN test (demonstration)."""
-    import json
     from mcp_chain import mcp_chain
     
     # Create a collector server that records all interactions
@@ -302,8 +298,8 @@ def test_request_flow_with_collector():
     received_request = collector.request_calls[0]
     assert received_request["method"] == "test_method"
     assert received_request["params"]["key"] == "value"
-    assert received_request["middleware_added"] == True
+    assert received_request["middleware_added"]
     
     # Verify response was transformed
     assert response_result["result"] == "success"
-    assert response_result["middleware_processed"] == True
+    assert response_result["middleware_processed"]

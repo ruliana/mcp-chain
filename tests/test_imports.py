@@ -1,6 +1,5 @@
 """Import tests for mcp-chain modules and types."""
 
-import pytest
 
 
 def test_can_import_mcp_chain():

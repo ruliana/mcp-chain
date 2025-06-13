@@ -1,11 +1,8 @@
 """Tests for MCP Chain core types and protocols."""
 
-import json
-from typing import Dict, Any, Callable
-import pytest
+from typing import Dict, Any
 
 from mcp_chain import (
-    DictMCPServer,
     DictMetadataTransformer,
     DictRequestResponseTransformer,
 )

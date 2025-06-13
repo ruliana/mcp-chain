@@ -9,7 +9,7 @@ def test_middleware_should_fail_without_downstream():
     
     # MiddlewareMCPServer now requires downstream in constructor
     with pytest.raises(TypeError):
-        middleware = MiddlewareMCPServer()
+        MiddlewareMCPServer()
 
 
 def test_middleware_can_proxy_to_downstream():
@@ -76,7 +76,7 @@ def test_middleware_has_then_method():
 
 def test_then_can_chain_downstream_server():
     """Test that then() can chain a downstream server."""
-    from mcp_chain import mcp_chain, MiddlewareMCPServer
+    from mcp_chain import mcp_chain
     
     # Create a mock downstream server
     class MockServer:

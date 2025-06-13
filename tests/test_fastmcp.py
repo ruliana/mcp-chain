@@ -1,11 +1,8 @@
 """Tests for FastMCPServer adapter."""
 
-import pytest
-from unittest.mock import Mock
 from typing import Dict, Any
 
 from mcp_chain.fastmcp import FastMCPServer
-from mcp_chain.types import DictMCPServer
 
 
 class MockDictMCPServer:
@@ -136,7 +133,7 @@ def test_fastmcp_server_resource_registration_with_missing_name():
 def test_fastmcp_server_run_filters_name_parameter():
     """Test that run() method filters out 'name' parameter."""
     mock_server = MockDictMCPServer()
-    fastmcp_server = FastMCPServer(mock_server, name="test-server")
+    FastMCPServer(mock_server, name="test-server")
     
     # Test the filtering logic directly
     kwargs = {"transport": "stdio", "name": "should-be-filtered", "port": 8080}
@@ -162,7 +159,7 @@ def test_fastmcp_server_tool_handler_execution():
         "tools": [{"name": "test_tool", "description": "Test tool"}]
     })
     
-    fastmcp_server = FastMCPServer(mock_server)
+    FastMCPServer(mock_server)
     
     # Simulate tool execution by accessing the registered tool handler
     # Note: In real usage, FastMCP would handle this, but we test the logic
@@ -195,7 +192,7 @@ def test_fastmcp_server_resource_handler_execution():
         "resources": [{"uri": "test://resource", "name": "test_resource"}]
     })
     
-    fastmcp_server = FastMCPServer(mock_server)
+    FastMCPServer(mock_server)
     
     # Simulate resource access by accessing the registered resource handler
     test_request = {

@@ -3,7 +3,6 @@
 import pytest
 from mcp_chain import mcp_chain
 from mcp_chain.builder import MCPChainBuilder
-from mcp_chain.types import DictMCPServer
 
 
 def test_mcp_chain_returns_builder_directly():
@@ -34,7 +33,7 @@ def test_mcp_chain_builder_get_metadata_returns_dict():
     
     # Should get an error since no real downstream server is connected
     with pytest.raises(ValueError, match="No downstream server configured"):
-        metadata = chain.get_metadata()
+        chain.get_metadata()
 
 
 def test_mcp_chain_builder_handle_request_returns_dict():
@@ -43,7 +42,7 @@ def test_mcp_chain_builder_handle_request_returns_dict():
     
     # Should get an error since no real downstream server is connected
     with pytest.raises(ValueError, match="No downstream server configured"):
-        response = chain.handle_request({"method": "test"})
+        chain.handle_request({"method": "test"})
 
 
 def test_chain_building_still_works():

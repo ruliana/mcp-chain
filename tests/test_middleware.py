@@ -1,7 +1,7 @@
 """Tests for MiddlewareMCPServer implementation."""
 
 import json
-from typing import Dict, Any, Callable
+from typing import Dict, Any
 import pytest
 
 from mcp_chain import MiddlewareMCPServer, mcp_chain
@@ -41,7 +41,7 @@ def test_middleware_no_downstream_error():
     """Test that middleware raises error when no downstream server."""
     # MiddlewareMCPServer now requires downstream in constructor
     with pytest.raises(TypeError):
-        middleware = MiddlewareMCPServer()
+        MiddlewareMCPServer()
 
 
 def test_middleware_dict_metadata_transformer():

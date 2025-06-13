@@ -1,6 +1,5 @@
 """Complex chain building logic tests."""
 
-import json
 import pytest
 
 
@@ -17,7 +16,7 @@ def test_mcp_chain_builder_has_then_method():
 
 def test_mcp_chain_builder_then_returns_downstream_server():
     """Test that MCPChainBuilder.then() returns downstream server directly."""
-    from mcp_chain import mcp_chain, MiddlewareMCPServer
+    from mcp_chain import mcp_chain
     
     # Create a mock downstream server (no 'then' method)
     class MockServer:
@@ -88,7 +87,7 @@ def test_middleware_then_delegates_to_child_and_wraps():
             return self
     
     # Create initial chain
-    builder = mcp_chain()
+    mcp_chain()
     mock_with_then = MockServer()
     
     # Create a middleware with the mock that has 'then'
@@ -114,7 +113,7 @@ def test_middleware_then_delegates_to_child_and_wraps():
 
 def test_mcp_chain_builder_replaces_itself_in_chain():
     """Test that MCPChainBuilder replaces itself when downstream is added."""
-    from mcp_chain import mcp_chain, MiddlewareMCPServer
+    from mcp_chain import mcp_chain
     
     # Create downstream server
     class MockServer:

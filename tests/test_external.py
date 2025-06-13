@@ -1,6 +1,5 @@
 """Tests for external MCP server functionality."""
 
-import pytest
 import json
 import subprocess
 from unittest.mock import Mock, patch
@@ -160,7 +159,7 @@ def test_external_mcp_server_handle_request_forwards_to_external(mock_popen):
     
     assert response["jsonrpc"] == "2.0"
     assert response["id"] == 3
-    assert response["result"]["success"] == True
+    assert response["result"]["success"]
 
 
 @patch('subprocess.Popen')

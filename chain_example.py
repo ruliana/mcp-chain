@@ -6,8 +6,10 @@ from mcp_chain import CLIMCPServer, mcp_chain
 # Create a CLI server for the ls command with custom description
 cli_server = CLIMCPServer(
     name="ls-tool",
-    command="ls",
-    description="List files and directories in the current path with detailed information"
+    commands=["ls"],
+    descriptions={
+        "ls": "List files and directories in the current path with detailed information"
+    }
 )
 
 # Create the chain - for now just the CLI server

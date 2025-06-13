@@ -1,10 +1,9 @@
 """End-to-end integration tests for FastMCP integration."""
 
-import pytest
 from unittest.mock import Mock, patch
 from typing import Dict, Any
 
-from mcp_chain import mcp_chain, serve, ExternalMCPServer
+from mcp_chain import mcp_chain, serve
 
 
 class MockExternalMCPServer:
@@ -68,7 +67,6 @@ def test_fastmcp_integration_with_middleware_chain():
              .then(external_server))
     
     # Verify the chain is a DictMCPServer (not wrapped in FrontMCPServer)
-    from mcp_chain.types import DictMCPServer
     assert hasattr(chain, 'get_metadata')
     assert hasattr(chain, 'handle_request')
     

@@ -5,7 +5,6 @@ from unittest.mock import Mock, patch
 from typing import Dict, Any
 
 from mcp_chain.serve import serve
-from mcp_chain.types import DictMCPServer
 
 
 class MockDictMCPServer:

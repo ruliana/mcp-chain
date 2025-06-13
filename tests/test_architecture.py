@@ -1,7 +1,5 @@
 """Tests for the proper chain building architecture - TDD red-green cycle."""
 
-import json
-import pytest
 
 
 def test_mcp_chain_initial_architecture():

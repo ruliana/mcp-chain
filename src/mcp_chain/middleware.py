@@ -1,6 +1,6 @@
 """Middleware MCP server implementation for MCP Chain."""
 
-from typing import Callable, Any, Dict
+from typing import Any, Dict
 from .types import DictMCPServer, MetadataTransformer, RequestResponseTransformer
 
 
@@ -52,4 +52,4 @@ class MiddlewareMCPServer:
         else:
             # Downstream doesn't have `then` method - this should be an error
             # since we can't chain further on a terminal server
-            raise ValueError(f"Cannot chain on downstream server: it has no `then` method")
+            raise ValueError("Cannot chain on downstream server: it has no `then` method")

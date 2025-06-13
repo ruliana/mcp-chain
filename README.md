@@ -6,6 +6,59 @@ A composable middleware framework for building sophisticated MCP server chains i
 
 Get started in 30 seconds with `uvx` - no installation required!
 
+### Simple CLI Server
+
+Create a CLI server that exposes command-line tools as MCP tools:
+
+```python
+# cli_server.py
+from mcp_chain import mcp_chain, CLIMCPServer
+
+# Create a CLI server for the ls command
+cli_server = CLIMCPServer(
+    name="ls-tool",
+    commands=["ls"],
+    descriptions={
+        "ls": "List files and directories in the current path with detailed information"
+    }
+)
+
+# Create the chain - auto-detected by mcp-chain CLI
+chain = mcp_chain().then(cli_server)
+```
+
+```bash
+uvx mcp-chain cli_server.py
+```
+
+### Multi-Command CLI Server
+
+Create a server that exposes multiple CLI tools:
+
+```python
+# dev_tools.py
+from mcp_chain import mcp_chain, CLIMCPServer
+
+# Create a CLI server with multiple development tools
+dev_tools = CLIMCPServer(
+    name="dev-tools-server",
+    commands=["git", "docker", "npm", "grep"],
+    descriptions={
+        "git": "Git version control operations for project management",
+        "docker": "Docker container management and deployment tools", 
+        "npm": "Node.js package management and build automation",
+        "grep": "Text search and pattern matching utility"
+    }
+)
+
+# Create the chain - auto-detected by mcp-chain CLI
+chain = mcp_chain().then(dev_tools)
+```
+
+```bash
+uvx mcp-chain dev_tools.py
+```
+
 ### Simple Proxy
 
 Create a simple proxy to an existing MCP server:
@@ -44,6 +97,31 @@ serve(chain, name="Authenticated Postgres")
 
 ```bash
 uvx mcp-chain auth_proxy.py
+```
+
+### CLI Server with Authentication
+
+Add authentication to a CLI server:
+
+```python
+# auth_cli.py
+from mcp_chain import mcp_chain, CLIMCPServer
+
+def require_auth(next_server, request_dict):
+    if not request_dict.get("auth_token"):
+        return {"error": "Authentication required", "code": 401}
+    return next_server.handle_request(request_dict)
+
+cli_server = CLIMCPServer(name="secure-ls", commands=["ls"])
+
+# Chain with auth middleware - auto-detected by mcp-chain CLI
+chain = (mcp_chain()
+         .then(None, require_auth)
+         .then(cli_server))
+```
+
+```bash
+uvx mcp-chain auth_cli.py
 ```
 
 ### Add Request Logging
@@ -239,7 +317,7 @@ serve(my_chain, name="My Server")
 You can also use the `serve()` function directly in your Python programs:
 
 ```python
-from mcp_chain import mcp_chain, ExternalMCPServer, serve
+from mcp_chain import mcp_chain, ExternalMCPServer, CLIMCPServer, serve
 
 def auth_middleware(next_server, request_dict):
     # Add your authentication logic
@@ -247,19 +325,27 @@ def auth_middleware(next_server, request_dict):
         return {"error": "Authentication required", "code": 401}
     return next_server.handle_request(request_dict)
 
-# Build your chain
+# Option 1: Chain with external MCP server
 chain = (mcp_chain()
          .then(None, auth_middleware)
          .then(ExternalMCPServer("postgres", "postgres-mcp")))
 
+# Option 2: Chain with CLI server
+cli_server = CLIMCPServer(name="secure-git", commands=["git"])
+cli_chain = (mcp_chain()
+            .then(None, auth_middleware)
+            .then(cli_server))
+
 # Start server programmatically 
 serve(chain, name="Authenticated Postgres", port=8000)
+# or
+serve(cli_chain, name="Authenticated Git Tools", port=8001)
 ```
 
 ## Detailed Usage
 
 ```python
-from mcp_chain import mcp_chain, serve
+from mcp_chain import mcp_chain, CLIMCPServer, serve
 
 # Create middleware functions that work with Python dictionaries
 def add_auth_header(next_server, request_dict):
@@ -279,12 +365,26 @@ def add_company_context(next_server, metadata_dict):
         tool["description"] = f"Company Tool: {tool.get('description', '')}"
     return metadata
 
-# Build the chain: client → transformers → your_mcp_server
+# Create a CLI server as the downstream server
+cli_server = CLIMCPServer(
+    name="company-tools",
+    commands=["git", "npm", "docker"],
+    descriptions={
+        "git": "Version control operations",
+        "npm": "Package management",
+        "docker": "Container management"
+    }
+)
+
+# Build the chain: client → transformers → CLI server
 chain = (mcp_chain()
          .then(add_company_context, add_auth_header)
-         .then(your_mcp_server))
+         .then(cli_server))
 
-# Start the server using FastMCP
+# Option A: Auto-detection (save as company_tools.py, run with uvx mcp-chain company_tools.py)
+# The 'chain' variable will be auto-detected
+
+# Option B: Programmatic serving
 serve(chain, name="Company MCP Server")
 ```
 
@@ -341,6 +441,9 @@ graph TD
 - **Error handling** - Proper errors when no downstream server is configured
 - **Type safety** - Full type annotations with DictMCPServer protocol
 - **serve() function** - Easy programmatic server startup
+- **CLIMCPServer** - Built-in server for exposing CLI commands as MCP tools
+- **Multi-command support** - Single server can expose multiple CLI commands
+- **Auto-detection** - CLI automatically detects chain variables in your Python files
 - **Comprehensive error handling** - Robust error handling for all failure modes
 - **Detailed logging** - Warning and error logging throughout the system
 - **Duplicate detection** - Prevents duplicate tool/resource registration
@@ -350,6 +453,29 @@ graph TD
 ### 🚀 Current API
 
 ```python
+# CLIMCPServer - expose CLI commands as MCP tools
+from mcp_chain import mcp_chain, CLIMCPServer
+
+# CLI server with single command
+cli_server = CLIMCPServer(
+    name="my-tool",
+    commands=["ls"],
+    descriptions={
+        "ls": "List directory contents"
+    }
+)
+
+# CLI server with multiple commands
+multi_cli = CLIMCPServer(
+    name="dev-tools",
+    commands=["git", "docker", "npm"],
+    descriptions={
+        "git": "Git version control operations",
+        "docker": "Docker container management",
+        "npm": "Node.js package management"
+    }
+)
+
 # Dict-based transformers (work with Python dictionaries)
 def metadata_transformer(next_server, metadata_dict):
     # Get metadata from downstream and transform it
@@ -370,12 +496,20 @@ def request_transformer(next_server, request_dict):
     response["processed"] = True
     return response
 
-# Chain building and serving
-chain = (mcp_chain()
-         .then(metadata_transformer, request_transformer)  # Add transformers
-         .then(downstream_server))                         # Add downstream server
+# Chain building options:
 
-# Start the server using FastMCP
+# 1. Auto-detected by CLI (no serve() call needed)
+chain = mcp_chain().then(cli_server)
+
+# 2. With middleware transformers (auto-detected)
+chain = (mcp_chain()
+         .then(metadata_transformer, request_transformer)
+         .then(cli_server))
+
+# 3. Programmatic serving with serve() function
+chain = (mcp_chain()
+         .then(metadata_transformer, request_transformer)
+         .then(downstream_server))
 serve(chain, name="Enhanced MCP Server")
 ```
 
@@ -434,18 +568,75 @@ Each middleware in the chain can transform the requests and responses as needed,
 
 ## Development
 
-This project was built using Test-Driven Development (TDD). To run tests:
+This project was built using Test-Driven Development (TDD). 
+
+### Running Tests
+
+#### Unit and Component Tests
+For fast feedback during development, run the standard test suite:
 
 ```bash
 uv run pytest tests/ -v
 ```
 
-All 141 tests are currently passing, providing comprehensive coverage of:
-- FastMCP integration
-- Error handling scenarios
-- Middleware functionality
+#### Integration Tests  
+For comprehensive end-to-end testing, run integration tests **with timeout protection**:
+
+```bash
+# Run all integration tests (recommended timeout: 30s)
+timeout 30 uv run pytest tests/ -m integration -v
+
+# Run specific integration test
+timeout 30 uv run pytest tests/test_mcp_protocol_integration.py::test_mcp_protocol_complete_flow -v
+
+# Run with live output (useful for debugging)
+timeout 30 uv run pytest tests/ -m integration -v -s
+```
+
+#### Excluding Integration Tests
+For CI or when you want fast test runs, exclude integration tests:
+
+```bash
+# Run all tests except integration tests
+uv run pytest tests/ -m "not integration" -v
+```
+
+#### Complete Test Coverage
+Run both unit and integration tests:
+
+```bash
+# Run all tests (unit + integration) with timeout protection
+timeout 45 uv run pytest tests/ -v
+```
+
+#### Local CI Pipeline
+Test the complete CI pipeline locally before pushing:
+
+```bash
+# Run the complete CI pipeline locally (mirrors GitHub Actions)
+./scripts/test-ci.sh
+```
+
+### Test Organization
+
+- **Unit/Component Tests**: Fast tests (< 1s each) that don't require external processes
+- **Integration Tests**: End-to-end tests that start real MCP servers and test the complete protocol flow
+  - Located in `tests/test_mcp_protocol_integration.py`
+  - Marked with `@pytest.mark.integration`
+  - Require timeout protection due to subprocess management
+  - Test MCP protocol compliance, tool discovery, execution, and middleware logging
+
+Currently **146 total tests** are passing:
+- **141 unit/component tests** - Fast development feedback
+- **5 integration tests** - End-to-end protocol validation
+
+Comprehensive coverage includes:
+- FastMCP integration and protocol compliance
+- Error handling scenarios and edge cases
+- Middleware functionality and chaining
 - Type safety validation
-- End-to-end integration
+- CLI tool integration
+- Complete MCP protocol flow validation
 
 ## See Also
 
@@ -454,9 +645,31 @@ All 141 tests are currently passing, providing comprehensive coverage of:
 
 ## CI/CD with GitHub Actions
 
-- All pushes and pull requests run the full test suite automatically.
-- On new releases, the package is built and published to PyPI.
-- See .github/workflows/ for workflow definitions.
+Our CI pipeline ensures code quality and reliability across multiple platforms:
+
+### Continuous Integration (CI)
+- **Multi-platform testing**: Tests run on Ubuntu, macOS, and Windows
+- **Multi-version testing**: Python 3.12 and 3.13 support
+- **Fast unit tests**: Run on every push/PR for quick feedback
+- **Integration tests**: Full MCP protocol validation with timeout protection
+- **Code formatting**: Automated linting with ruff
+- **Coverage reporting**: Code coverage tracked and reported
+
+### Test Strategy in CI
+```bash
+# Unit/Component tests (fast, always run)
+uv run pytest tests/ -m "not integration" -v
+
+# Integration tests (comprehensive, with timeout protection)  
+timeout 45 uv run pytest tests/ -m integration -v
+```
+
+### Automated Publishing
+- Releases are automatically published to PyPI when GitHub releases are created
+- Trusted publishing with OpenID Connect (no API keys required)
+- Pre-publish test validation ensures only working code is released
+
+See [.github/workflows/](.github/workflows/) for complete workflow definitions.
 
 ## Publishing to PyPI
 

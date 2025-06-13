@@ -40,8 +40,8 @@ try:
     # Create CLIMCPServer with echo command
     echo_server = CLIMCPServer(
         name="echo-tool",
-        command="echo",
-        description="Echo command for MCP protocol testing"
+        commands=["echo"],
+        descriptions={"echo": "Echo command for MCP protocol testing"}
     )
     
     logger.info("Created CLIMCPServer with echo command")

@@ -1,11 +1,10 @@
 """Test to verify that design.md examples actually work with the implemented code."""
 
-import json
 
 
 def test_design_doc_basic_example_works():
     """Test that the basic example from design.md actually works."""
-    from mcp_chain import mcp_chain, ExternalMCPServer
+    from mcp_chain import mcp_chain
     
     # Mock external server (simulating what ExternalMCPServer would do)
     class MockExternalServer:
@@ -187,8 +186,8 @@ def test_design_doc_logging_example_works():
 
 def test_design_doc_protocols_match_implementation():
     """Test that the protocols in design.md match the actual implementation."""
-    from mcp_chain import DictMCPServer, MetadataTransformer, RequestResponseTransformer
-    from typing import get_type_hints, Dict, Any
+    from mcp_chain import DictMCPServer
+    from typing import Dict, Any
     
     # Test MCPServer protocol
     class TestMCPServer:

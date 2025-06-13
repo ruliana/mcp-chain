@@ -2,12 +2,11 @@
 
 import pytest
 import logging
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from typing import Dict, Any
 
 from mcp_chain.fastmcp import FastMCPServer
 from mcp_chain.serve import serve
-from mcp_chain.types import DictMCPServer
 
 # Import the logger used in fastmcp.py so we can test it
 logger = logging.getLogger("mcp_chain.fastmcp")
@@ -52,7 +51,7 @@ def test_fastmcp_server_logs_when_no_tools_or_resources(caplog):
     """Test FastMCPServer logs appropriately when no tools or resources are found."""
     with caplog.at_level(logging.INFO):
         mock_server = MockDictMCPServer({})  # Empty metadata
-        fastmcp_server = FastMCPServer(mock_server)
+        FastMCPServer(mock_server)
     
     # Should log when no tools/resources are found
     assert "No tools found in metadata" in caplog.text
@@ -68,11 +67,11 @@ def test_fastmcp_server_handles_downstream_request_failure():
     )
     
     # Should initialize successfully
-    fastmcp_server = FastMCPServer(mock_server)
+    FastMCPServer(mock_server)
     
     # Simulate a tool call that should fail
     try:
-        response = mock_server.handle_request({
+        mock_server.handle_request({
             "method": "tools/call",
             "params": {"name": "test_tool", "arguments": {}}
         })
@@ -130,7 +129,7 @@ def test_fastmcp_tool_handler_with_error_should_log_and_reraise(caplog):
         try:
             test_tool_handler(param1="value1")
             assert False, "Expected error to be raised"
-        except RuntimeError as e:
+        except RuntimeError:
             pass  # Expected, but we should have logged it
     
     # Now we should see the error log

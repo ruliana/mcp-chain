@@ -1,32 +1,30 @@
 """Tests for CLIMCPServer functionality."""
 
-import pytest
-import json
 from unittest.mock import Mock, patch
 from mcp_chain.cli_mcp import CLIMCPServer
 
 
 def test_cli_mcp_server_creation():
     """Test creating a CLIMCPServer."""
-    server = CLIMCPServer("test-cli", command="ls")
+    server = CLIMCPServer("test-cli", commands=["ls"])
     
     assert server.name == "test-cli"
-    assert server.command == "ls"
+    assert server.commands == ["ls"]
 
 
 def test_cli_mcp_server_creation_with_description():
     """Test creating a CLIMCPServer with custom description."""
     custom_desc = "Custom description for ls command"
-    server = CLIMCPServer("test-cli", command="ls", description=custom_desc)
+    server = CLIMCPServer("test-cli", commands=["ls"], descriptions={"ls": custom_desc})
     
     assert server.name == "test-cli"
-    assert server.command == "ls"
-    assert server.description == custom_desc
+    assert server.commands == ["ls"]
+    assert server.descriptions == {"ls": custom_desc}
 
 
 def test_cli_mcp_server_implements_dict_mcp_server_protocol():
     """Test that CLIMCPServer implements DictMCPServer protocol."""
-    server = CLIMCPServer("test-cli", command="echo")
+    server = CLIMCPServer("test-cli", commands=["echo"])
     
     # Should have get_metadata method
     assert hasattr(server, 'get_metadata')
@@ -39,7 +37,7 @@ def test_cli_mcp_server_implements_dict_mcp_server_protocol():
 
 def test_get_metadata_returns_tools():
     """Test that get_metadata returns tools for configured command."""
-    server = CLIMCPServer("test-cli", command="echo")
+    server = CLIMCPServer("test-cli", commands=["echo"])
     
     metadata = server.get_metadata()
     
@@ -56,7 +54,7 @@ def test_get_metadata_returns_tools():
 
 def test_handle_tools_list_request():
     """Test handling tools/list request."""
-    server = CLIMCPServer("test-cli", command="echo")
+    server = CLIMCPServer("test-cli", commands=["echo"])
     
     request = {
         "jsonrpc": "2.0",
@@ -84,7 +82,7 @@ def test_handle_tool_call_request(mock_run):
     mock_result.returncode = 0
     mock_run.return_value = mock_result
     
-    server = CLIMCPServer("test-cli", command="echo")
+    server = CLIMCPServer("test-cli", commands=["echo"])
     
     request = {
         "jsonrpc": "2.0",
@@ -103,7 +101,7 @@ def test_handle_tool_call_request(mock_run):
     assert response["jsonrpc"] == "2.0"
     assert response["id"] == 2
     assert "result" in response
-    assert response["result"]["isError"] == False
+    assert not response["result"]["isError"]
     assert len(response["result"]["content"]) == 1
     assert "Hello World" in response["result"]["content"][0]["text"]
     
@@ -123,7 +121,7 @@ def test_handle_tool_call_with_flags(mock_run):
     mock_result.returncode = 0
     mock_run.return_value = mock_result
     
-    server = CLIMCPServer("test-cli", command="ls")
+    server = CLIMCPServer("test-cli", commands=["ls"])
     
     request = {
         "jsonrpc": "2.0",
@@ -156,7 +154,7 @@ def test_handle_tool_call_with_flags(mock_run):
 
 def test_handle_unknown_method():
     """Test handling unknown method request."""
-    server = CLIMCPServer("test-cli", command="echo")
+    server = CLIMCPServer("test-cli", commands=["echo"])
     
     request = {
         "jsonrpc": "2.0",
@@ -176,7 +174,7 @@ def test_handle_unknown_method():
 
 def test_handle_unknown_tool():
     """Test handling call to unknown tool."""
-    server = CLIMCPServer("test-cli", command="echo")
+    server = CLIMCPServer("test-cli", commands=["echo"])
     
     request = {
         "jsonrpc": "2.0",
@@ -203,7 +201,7 @@ def test_command_error_handling(mock_run):
     # Mock subprocess.run to raise an exception
     mock_run.side_effect = Exception("Command failed")
     
-    server = CLIMCPServer("test-cli", command="echo")
+    server = CLIMCPServer("test-cli", commands=["echo"])
     
     request = {
         "jsonrpc": "2.0",
@@ -220,7 +218,7 @@ def test_command_error_handling(mock_run):
     assert response["jsonrpc"] == "2.0"
     assert response["id"] == 6
     assert "result" in response
-    assert response["result"]["isError"] == True
+    assert response["result"]["isError"]
     assert "Error executing echo" in response["result"]["content"][0]["text"]
 
 
@@ -233,7 +231,7 @@ def test_command_with_stderr_and_exit_code(mock_run):
     mock_result.returncode = 1
     mock_run.return_value = mock_result
     
-    server = CLIMCPServer("test-cli", command="ls")
+    server = CLIMCPServer("test-cli", commands=["ls"])
     
     request = {
         "jsonrpc": "2.0",
@@ -250,7 +248,7 @@ def test_command_with_stderr_and_exit_code(mock_run):
     assert response["jsonrpc"] == "2.0"
     assert response["id"] == 7
     assert "result" in response
-    assert response["result"]["isError"] == False  # We still return success but include error info
+    assert not response["result"]["isError"]  # We still return success but include error info
     
     content = response["result"]["content"][0]["text"]
     assert "STDOUT:" in content
@@ -261,8 +259,8 @@ def test_command_with_stderr_and_exit_code(mock_run):
 
 
 def test_single_command_server():
-    """Test CLIMCPServer with a specific command."""
-    server = CLIMCPServer("test-cli", command="echo")
+    """Test CLIMCPServer with a single command in the list."""
+    server = CLIMCPServer("test-cli", commands=["echo"])
     
     metadata = server.get_metadata()
     
@@ -290,7 +288,7 @@ Options:
     mock_result.returncode = 0
     mock_run.return_value = mock_result
     
-    server = CLIMCPServer("test-cli", command="ls")
+    server = CLIMCPServer("test-cli", commands=["ls"])
     
     # This should trigger help text extraction
     metadata = server.get_metadata()
@@ -317,7 +315,7 @@ def test_description_override_functionality(mock_run):
     mock_run.return_value = mock_result
     
     custom_desc = "My custom description for ls tool"
-    server = CLIMCPServer("test-cli", command="ls", description=custom_desc)
+    server = CLIMCPServer("test-cli", commands=["ls"], descriptions={"ls": custom_desc})
     
     metadata = server.get_metadata()
     
@@ -341,7 +339,7 @@ def test_fallback_to_help_text_when_no_override(mock_run):
     mock_result.returncode = 0
     mock_run.return_value = mock_result
     
-    server = CLIMCPServer("test-cli", command="ls")  # No description parameter
+    server = CLIMCPServer("test-cli", commands=["ls"])  # No descriptions parameter
     
     metadata = server.get_metadata()
     
@@ -458,7 +456,7 @@ def test_handle_tool_call_with_multiple_commands(mock_run):
     assert response["jsonrpc"] == "2.0"
     assert response["id"] == 1
     assert "result" in response
-    assert response["result"]["isError"] == False
+    assert not response["result"]["isError"]
     assert "test output" in response["result"]["content"][0]["text"]
     
     # Verify the correct command was executed

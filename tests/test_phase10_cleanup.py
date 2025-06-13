@@ -1,10 +1,9 @@
 """Test Phase 10: Cleanup & Polish - TDD approach to removing unused imports and dead code."""
 
 import ast
-import os
 import subprocess
 from pathlib import Path
-from typing import List, Set
+from typing import List
 
 
 def test_no_unused_imports_in_src():

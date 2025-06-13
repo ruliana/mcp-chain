@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MCP Protocol Test Client
+MCP Protocol Integration Test
 
 This script implements a proper MCP client that:
 1. Starts the MCP chain server in a subprocess
@@ -17,12 +17,13 @@ import json
 import time
 import logging
 import subprocess
+import pytest
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Setup
-project_root = Path(__file__).parent.absolute()
+project_root = Path(__file__).parent.parent.absolute()
 log_dir = Path("/tmp/mcp_chain_integration")
 log_dir.mkdir(exist_ok=True, mode=0o755)
 
@@ -146,7 +147,7 @@ def start_mcp_server() -> subprocess.Popen:
     
     if process.poll() is not None:
         stdout, stderr = process.communicate()
-        logger.error(f"Server failed to start:")
+        logger.error("Server failed to start:")
         logger.error(f"STDOUT: {stdout}")
         logger.error(f"STDERR: {stderr}")
         raise RuntimeError("Failed to start MCP server")
@@ -155,10 +156,192 @@ def start_mcp_server() -> subprocess.Popen:
     return process
 
 
-def run_mcp_protocol_test():
-    """Run the complete MCP protocol test following the specification."""
+@pytest.fixture
+def mcp_server():
+    """Fixture to start and stop MCP server for tests."""
+    server_process = start_mcp_server()
+    try:
+        yield server_process
+    finally:
+        # Cleanup: kill the server subprocess
+        logger.info("Terminating MCP server subprocess...")
+        try:
+            server_process.terminate()
+            server_process.wait(timeout=3)
+            logger.info("Server terminated cleanly")
+        except subprocess.TimeoutExpired:
+            logger.warning("Server didn't terminate, killing...")
+            server_process.kill()
+            server_process.wait()
+            logger.info("Server killed")
+        except Exception as e:
+            logger.error(f"Error terminating server: {e}")
+
+
+@pytest.mark.integration
+def test_mcp_protocol_initialization(mcp_server):
+    """Test MCP protocol initialization sequence."""
+    client = MCPProtocolClient(mcp_server)
+    
+    # Step 1: Send initialize request
+    init_response = client.send_request_and_get_response(
+        "initialize",
+        {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "roots": {
+                    "listChanged": False
+                }
+            },
+            "clientInfo": {
+                "name": "mcp-protocol-test-client",
+                "version": "1.0.0"
+            }
+        },
+        timeout=10
+    )
+    
+    # Validate initialization response
+    assert init_response is not None, "Initialize response should not be None"
+    assert "result" in init_response, "Initialize response should contain 'result'"
+    assert "protocolVersion" in init_response["result"], "Initialize response should contain protocol version"
+    
+    # Step 2: Send initialized notification
+    client.send_notification("notifications/initialized")
+    time.sleep(0.5)  # Give server time to process
+
+
+@pytest.mark.integration
+def test_mcp_protocol_tools_discovery(mcp_server):
+    """Test MCP tools discovery."""
+    client = MCPProtocolClient(mcp_server)
+    
+    # Initialize first
+    init_response = client.send_request_and_get_response(
+        "initialize",
+        {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {"roots": {"listChanged": False}},
+            "clientInfo": {"name": "test-client", "version": "1.0.0"}
+        },
+        timeout=10
+    )
+    assert init_response is not None
+    
+    client.send_notification("notifications/initialized")
+    time.sleep(0.5)
+    
+    # Discover tools
+    tools_response = client.send_request_and_get_response("tools/list", timeout=10)
+    
+    assert tools_response is not None, "Tools response should not be None"
+    assert "result" in tools_response, "Tools response should contain 'result'"
+    assert "tools" in tools_response["result"], "Tools response should contain 'tools'"
+    
+    tools = tools_response["result"]["tools"]
+    assert len(tools) > 0, "Should have at least one tool available"
+    
+    # Validate tool structure
+    for tool in tools:
+        assert "name" in tool, "Tool should have a name"
+        assert "description" in tool, "Tool should have a description"
+
+
+@pytest.mark.integration
+def test_mcp_protocol_tool_execution(mcp_server):
+    """Test MCP tool execution."""
+    client = MCPProtocolClient(mcp_server)
+    
+    # Initialize and discover tools
+    init_response = client.send_request_and_get_response(
+        "initialize",
+        {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {"roots": {"listChanged": False}},
+            "clientInfo": {"name": "test-client", "version": "1.0.0"}
+        },
+        timeout=10
+    )
+    assert init_response is not None
+    
+    client.send_notification("notifications/initialized")
+    time.sleep(0.5)
+    
+    tools_response = client.send_request_and_get_response("tools/list", timeout=10)
+    assert tools_response is not None
+    assert len(tools_response["result"]["tools"]) > 0
+    
+    # Execute the first available tool
+    tool_name = tools_response["result"]["tools"][0]["name"]
+    call_response = client.send_request_and_get_response(
+        "tools/call",
+        {
+            "name": tool_name,
+            "arguments": {
+                "_args": ["Hello from MCP protocol test!"]
+            }
+        },
+        timeout=10
+    )
+    
+    assert call_response is not None, "Tool call response should not be None"
+    assert "result" in call_response, "Tool call response should contain 'result'"
+    assert "content" in call_response["result"], "Tool call response should contain 'content'"
+    
+    content = call_response["result"]["content"]
+    assert len(content) > 0, "Tool call should return content"
+
+
+@pytest.mark.integration
+def test_mcp_protocol_middleware_logging(mcp_server):
+    """Test that middleware logging is working."""
+    client = MCPProtocolClient(mcp_server)
+    
+    # Initialize and make some requests to generate logs
+    init_response = client.send_request_and_get_response(
+        "initialize",
+        {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {"roots": {"listChanged": False}},
+            "clientInfo": {"name": "test-client", "version": "1.0.0"}
+        },
+        timeout=10
+    )
+    assert init_response is not None
+    
+    client.send_notification("notifications/initialized")
+    time.sleep(0.5)
+    
+    # Make a tools/list request to generate more log entries
+    tools_response = client.send_request_and_get_response("tools/list", timeout=10)
+    assert tools_response is not None
+    
+    # Give some time for logs to be written
+    time.sleep(1)
+    
+    # Check if log files were created
+    messages_log = log_dir / "mcp_messages.jsonl"
+    server_log = log_dir / "mcp_server.log"
+    
+    assert messages_log.exists(), f"Messages log should exist at {messages_log}"
+    assert server_log.exists(), f"Server log should exist at {server_log}"
+    
+    # Check log content
+    with open(messages_log, 'r') as f:
+        log_lines = f.readlines()
+    
+    logged_requests = sum(1 for line in log_lines if '"direction": "request"' in line)
+    logged_responses = sum(1 for line in log_lines if '"direction": "response"' in line)
+    
+    assert logged_requests > 0, "Should have logged at least one request"
+    assert logged_responses > 0, "Should have logged at least one response"
+
+
+@pytest.mark.integration
+def test_mcp_protocol_complete_flow():
+    """Test complete MCP protocol flow from start to finish."""
     logger.info("=" * 60)
-    logger.info("MCP PROTOCOL TEST STARTING")
+    logger.info("MCP PROTOCOL COMPLETE INTEGRATION TEST")
     logger.info("=" * 60)
     
     test_results = []
@@ -169,7 +352,7 @@ def run_mcp_protocol_test():
         server_process = start_mcp_server()
         client = MCPProtocolClient(server_process)
         
-        # Step 2: Initialize connection (following mcp_protocol.md)
+        # Step 2: Initialize connection
         logger.info("Step 2: Sending initialize request...")
         
         init_response = client.send_request_and_get_response(
@@ -194,19 +377,12 @@ def run_mcp_protocol_test():
                        "protocolVersion" in init_response["result"])
         
         test_results.append({"test": "initialize", "success": init_success, "response": init_response})
+        assert init_success, "Initialize step should succeed"
         
-        if init_success:
-            logger.info("✓ Initialize: PASS")
-            logger.info(f"  Server info: {init_response['result'].get('serverInfo', 'Not provided')}")
-            logger.info(f"  Capabilities: {init_response['result'].get('capabilities', {})}")
-        else:
-            logger.error("✗ Initialize: FAIL")
-            return False
-        
-        # Step 3: Send initialized notification (required by protocol)
+        # Step 3: Send initialized notification
         logger.info("Step 3: Sending initialized notification...")
         client.send_notification("notifications/initialized")
-        time.sleep(0.5)  # Give server time to process
+        time.sleep(0.5)
         
         # Step 4: Discover tools
         logger.info("Step 4: Discovering tools...")
@@ -217,20 +393,12 @@ def run_mcp_protocol_test():
                         "tools" in tools_response["result"])
         
         test_results.append({"test": "tools_list", "success": tools_success, "response": tools_response})
-        
-        if tools_success:
-            tools = tools_response["result"]["tools"]
-            logger.info(f"✓ Tools list: PASS ({len(tools)} tools found)")
-            for tool in tools:
-                logger.info(f"  - {tool.get('name', 'unnamed')}: {tool.get('description', 'no description')}")
-        else:
-            logger.error("✗ Tools list: FAIL")
+        assert tools_success, "Tools list step should succeed"
         
         # Step 5: Execute tool (if tools are available)
         if tools_success and len(tools_response["result"]["tools"]) > 0:
             logger.info("Step 5: Executing tool...")
             
-            # Use the first available tool (should be echo)
             tool_name = tools_response["result"]["tools"][0]["name"]
             
             call_response = client.send_request_and_get_response(
@@ -249,59 +417,34 @@ def run_mcp_protocol_test():
                            "content" in call_response["result"])
             
             test_results.append({"test": "tool_call", "success": call_success, "response": call_response})
-            
-            if call_success:
-                logger.info("✓ Tool call: PASS")
-                content = call_response["result"]["content"]
-                if content and len(content) > 0:
-                    logger.info(f"  Tool output: {content[0].get('text', 'No text')}")
-            else:
-                logger.error("✗ Tool call: FAIL")
-        else:
-            logger.warning("Skipping tool call test (no tools available)")
+            assert call_success, "Tool call step should succeed"
         
         # Step 6: Verify middleware logging
         logger.info("Step 6: Verifying middleware logging...")
+        time.sleep(1)  # Give logs time to be written
         
-        # Check if logs were created
         messages_log = log_dir / "mcp_messages.jsonl"
         server_log = log_dir / "mcp_server.log"
         
         logging_success = messages_log.exists() and server_log.exists()
         
         if logging_success:
-            # Check log content
             with open(messages_log, 'r') as f:
                 log_lines = f.readlines()
             
             logged_requests = sum(1 for line in log_lines if '"direction": "request"' in line)
             logged_responses = sum(1 for line in log_lines if '"direction": "response"' in line)
             
-            logger.info(f"✓ Middleware logging: PASS")
-            logger.info(f"  Logged requests: {logged_requests}")
-            logger.info(f"  Logged responses: {logged_responses}")
-            logger.info(f"  Messages log: {messages_log}")
-            logger.info(f"  Server log: {server_log}")
-        else:
-            logger.error("✗ Middleware logging: FAIL (log files not found)")
+            logging_success = logged_requests > 0 and logged_responses > 0
         
         test_results.append({"test": "middleware_logging", "success": logging_success})
+        assert logging_success, "Middleware logging should work"
         
-        # Calculate results
+        # All tests passed
         passed_tests = sum(1 for r in test_results if r["success"])
         total_tests = len(test_results)
-        success_rate = (passed_tests / total_tests * 100) if total_tests > 0 else 0
-        overall_success = passed_tests == total_tests
         
-        # Final results
-        logger.info("=" * 60)
-        logger.info("MCP PROTOCOL TEST RESULTS")
-        logger.info("=" * 60)
-        logger.info(f"Total Tests: {total_tests}")
-        logger.info(f"Passed: {passed_tests}")
-        logger.info(f"Failed: {total_tests - passed_tests}")
-        logger.info(f"Success Rate: {success_rate:.1f}%")
-        logger.info(f"Overall Result: {'PASS' if overall_success else 'FAIL'}")
+        logger.info(f"All {total_tests} integration tests passed!")
         
         # Save results
         results_file = log_dir / f"mcp_protocol_test_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -311,22 +454,13 @@ def run_mcp_protocol_test():
                     "timestamp": datetime.now().isoformat(),
                     "total_tests": total_tests,
                     "passed_tests": passed_tests,
-                    "success_rate": f"{success_rate:.1f}%",
-                    "overall_success": overall_success
+                    "success_rate": f"{100.0:.1f}%",
+                    "overall_success": True
                 },
                 "test_details": test_results
             }, f, indent=2)
         
         logger.info(f"Results saved to: {results_file}")
-        logger.info("=" * 60)
-        
-        return overall_success
-        
-    except Exception as e:
-        logger.error(f"MCP protocol test failed: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return False
         
     finally:
         # Cleanup: kill the server subprocess
@@ -345,42 +479,32 @@ def run_mcp_protocol_test():
                 logger.error(f"Error terminating server: {e}")
 
 
+# Legacy function for backwards compatibility
+def run_mcp_protocol_test():
+    """Legacy function - now use pytest instead."""
+    logger.warning("This function is deprecated. Use 'pytest tests/test_mcp_protocol_integration.py::test_mcp_protocol_complete_flow -v' instead")
+    return test_mcp_protocol_complete_flow()
+
+
 def main():
-    """Main entry point."""
-    print("🧪 MCP Protocol Test Client")
+    """Main entry point - redirects to pytest."""
+    print("🧪 MCP Protocol Integration Tests")
     print("=" * 50)
-    print("Following MCP protocol specification:")
-    print("• Initialize connection")
-    print("• Send initialized notification") 
-    print("• Discover tools")
-    print("• Execute tool calls")
-    print("• Verify middleware logging")
+    print("This file has been converted to pytest.")
+    print("To run the integration tests, use:")
     print()
-    
-    try:
-        success = run_mcp_protocol_test()
-        
-        print()
-        if success:
-            print("🎉 MCP PROTOCOL TEST PASSED!")
-            print("✅ MCP chain server responds correctly")
-            print("✅ Protocol initialization works")
-            print("✅ Tool discovery and execution works")
-            print("✅ Middleware logging works")
-        else:
-            print("❌ MCP PROTOCOL TEST FAILED")
-            print("❗ Check logs for details")
-        
-        print(f"📁 All logs in: {log_dir}")
-        return 0 if success else 1
-        
-    except KeyboardInterrupt:
-        print("\n⚠️ Test interrupted by user")
-        return 1
-    except Exception as e:
-        print(f"\n💥 Test failed: {e}")
-        return 1
+    print("  # Run all integration tests:")
+    print("  pytest tests/test_mcp_protocol_integration.py -v -m integration")
+    print()
+    print("  # Run specific test:")
+    print("  pytest tests/test_mcp_protocol_integration.py::test_mcp_protocol_complete_flow -v")
+    print()
+    print("  # Run with verbose output:")
+    print("  pytest tests/test_mcp_protocol_integration.py -v -s")
+    print()
+    print(f"📁 Logs will be in: {log_dir}")
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main()) 

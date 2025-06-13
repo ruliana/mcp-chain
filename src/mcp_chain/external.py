@@ -37,7 +37,7 @@ class ExternalMCPServer:
         }
         
         self._send_request(init_request)
-        response = self._read_response()
+        self._read_response()
     
     def _send_request(self, request):
         """Send a JSON-RPC request."""

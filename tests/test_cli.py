@@ -4,7 +4,6 @@ import sys
 import os
 import tempfile
 import pytest
-from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
 
