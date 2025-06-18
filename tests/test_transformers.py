@@ -87,28 +87,27 @@ def test_correct_chaining_order():
     
     # Create a mock downstream server
     class MockServer:
-        def get_metadata(self) -> str:
-            return json.dumps({"tools": [{"name": "test_tool", "description": "original"}]})
+        def get_metadata(self):
+            return {"tools": [{"name": "test_tool", "description": "original"}]}
             
-        def handle_request(self, request: str) -> str:
-            return json.dumps({"result": "success"})
+        def handle_request(self, request):
+            return {"result": "success"}
     
     # Create a raw metadata transformer (type hint: str -> str)
-    def raw_transform(next_mcp, json_metadata: str) -> str:
-        # Get metadata from next_mcp
-        original_metadata = next_mcp.get_metadata()
-        data = json.loads(original_metadata)
-        for tool in data.get("tools", []):
+    def raw_transform(next_server, metadata_dict):
+        # Get metadata from next_server
+        original_metadata = next_server.get_metadata()
+        for tool in original_metadata.get("tools", []):
             tool["description"] = "transformed: " + tool.get("description", "")
-        return json.dumps(data)
+        return original_metadata
     
     downstream = MockServer()
     
     # Correct order: chain → transformer → downstream
     # This should create: mcp_chain → transformer_middleware → downstream
-    chain = mcp_chain().then(raw_transform, lambda next_mcp, req: next_mcp.handle_request(req)).then(downstream)
+    chain = mcp_chain().then(raw_transform, lambda next_server, req: next_server.handle_request(req)).then(downstream)
     
-    result = json.loads(chain.get_metadata())
+    result = chain.get_metadata()
     expected = {"tools": [{"name": "test_tool", "description": "transformed: original"}]}
     assert result == expected
 
@@ -118,63 +117,59 @@ def test_mcp_chain_without_downstream_should_fail():
     from mcp_chain import mcp_chain
     
     # Create a chain with transformer but no downstream
-    def dummy_transform(next_mcp, json_metadata: str) -> str:
-        # Try to call next_mcp.get_metadata() - should fail without downstream
-        return next_mcp.get_metadata()
+    def dummy_transform(next_server, metadata_dict):
+        # Try to call next_server.get_metadata() - should fail without downstream
+        return next_server.get_metadata()
     
-    chain_without_downstream = mcp_chain().then(dummy_transform, lambda next_mcp, req: next_mcp.handle_request(req))
+    chain_without_downstream = mcp_chain().then(dummy_transform, lambda next_server, req: next_server.handle_request(req))
     
     # Should fail when trying to get metadata because there's no real downstream server
     with pytest.raises(ValueError, match="No downstream server configured"):
         chain_without_downstream.get_metadata()
 
 
-def test_transformer_receives_next_mcp_parameter():
-    """Test that transformers receive next_mcp as first parameter - RED test."""
+def test_transformer_receives_next_server_parameter():
+    """Test that transformers receive next_server as first parameter - RED test."""
     from mcp_chain import mcp_chain
     
-    # Create a mock downstream server
+    # Create a mock downstream server with dict-based interface
     class MockServer:
-        def get_metadata(self) -> str:
-            return json.dumps({"tools": [{"name": "test_tool", "description": "original"}]})
+        def get_metadata(self):
+            return {"tools": [{"name": "test_tool", "description": "original"}]}
             
-        def handle_request(self, request: str) -> str:
-            return json.dumps({"result": "success"})
+        def handle_request(self, request):
+            return {"result": "success"}
     
-    # Create transformers that expect next_mcp as first parameter
-    def metadata_transformer(next_mcp, json_metadata: str) -> str:
-        # Call next_mcp to get the metadata
-        original_metadata = next_mcp.get_metadata()
-        data = json.loads(original_metadata)
-        for tool in data.get("tools", []):
+    # Create transformers that expect next_server as first parameter
+    def metadata_transformer(next_server, metadata_dict):
+        # Call next_server to get the metadata
+        original_metadata = next_server.get_metadata()
+        for tool in original_metadata.get("tools", []):
             tool["description"] = "transformed: " + tool.get("description", "")
-        return json.dumps(data)
+        return original_metadata
     
-    def request_transformer(next_mcp, json_request: str) -> str:
-        request = json.loads(json_request)
-        request["transformed"] = True
+    def request_transformer(next_server, request_dict):
+        request_dict["transformed"] = True
         
-        # Call next_mcp to handle the request
-        transformed_request_json = json.dumps(request)
-        downstream_response = next_mcp.handle_request(transformed_request_json)
+        # Call next_server to handle the request
+        downstream_response = next_server.handle_request(request_dict)
         
-        response = json.loads(downstream_response)
-        response["response_transformed"] = True
-        return json.dumps(response)
+        downstream_response["response_transformed"] = True
+        return downstream_response
     
     downstream = MockServer()
     
     # Build the chain
     chain = mcp_chain().then(metadata_transformer, request_transformer).then(downstream)
     
-    # Test metadata flow - should work with new API
-    result = json.loads(chain.get_metadata())
+    # Test metadata flow - should work with dict-based API
+    result = chain.get_metadata()
     expected = {"tools": [{"name": "test_tool", "description": "transformed: original"}]}
     assert result == expected
 
 
-def test_transformer_controls_next_mcp_execution():
-    """Test that transformers can decide when/if to call next_mcp - RED test."""
+def test_transformer_controls_next_server_execution():
+    """Test that transformers can decide when/if to call next_server - RED test."""
     from mcp_chain import mcp_chain
     
     # Create a mock downstream server that tracks calls
@@ -183,35 +178,32 @@ def test_transformer_controls_next_mcp_execution():
             self.get_metadata_calls = 0
             self.handle_request_calls = 0
             
-        def get_metadata(self) -> str:
+        def get_metadata(self):
             self.get_metadata_calls += 1
-            return json.dumps({"tools": [{"name": "test_tool", "description": "original"}]})
+            return {"tools": [{"name": "test_tool", "description": "original"}]}
             
-        def handle_request(self, request: str) -> str:
+        def handle_request(self, request):
             self.handle_request_calls += 1
-            return json.dumps({"result": "success"})
+            return {"result": "success"}
     
-    # Create transformers that control whether to call next_mcp
-    def conditional_metadata_transformer(next_mcp, json_metadata: str) -> str:
-        # Only call next_mcp if metadata contains certain conditions
-        if "test_condition" in json_metadata:
-            original_metadata = next_mcp.get_metadata()
-            data = json.loads(original_metadata)
+    # Create transformers that control whether to call next_server
+    def conditional_metadata_transformer(next_server, metadata_dict):
+        # Only call next_server if metadata contains certain conditions
+        if metadata_dict.get("test_condition"):
+            original_metadata = next_server.get_metadata()
+            return original_metadata
         else:
-            # Don't call next_mcp, return custom metadata
-            data = {"tools": [{"name": "blocked_tool", "description": "blocked by condition"}]}
-        return json.dumps(data)
+            # Don't call next_server, return custom metadata
+            return {"tools": [{"name": "blocked_tool", "description": "blocked by condition"}]}
     
-    def conditional_request_transformer(next_mcp, json_request: str) -> str:
-        request = json.loads(json_request)
-        
-        # Only call next_mcp if request has permission
-        if request.get("authorized", False):
-            # Call next_mcp
-            return next_mcp.handle_request(json_request)
+    def conditional_request_transformer(next_server, request_dict):
+        # Only call next_server if request has permission
+        if request_dict.get("authorized", False):
+            # Call next_server
+            return next_server.handle_request(request_dict)
         else:
-            # Don't call next_mcp, return custom response
-            return json.dumps({"error": "unauthorized"})
+            # Don't call next_server, return custom response
+            return {"error": "unauthorized"}
     
     downstream = TrackingServer()
     
@@ -219,21 +211,21 @@ def test_transformer_controls_next_mcp_execution():
     chain = mcp_chain().then(conditional_metadata_transformer, conditional_request_transformer).then(downstream)
     
     # Test 1: get_metadata without test_condition - should NOT call downstream
-    result = json.loads(chain.get_metadata())
+    result = chain.get_metadata()
     assert result["tools"][0]["name"] == "blocked_tool"
-    assert downstream.get_metadata_calls == 0  # next_mcp was not called
+    assert downstream.get_metadata_calls == 0  # next_server was not called
     
     # Test 2: handle_request without authorization - should NOT call downstream
-    unauthorized_request = '{"method": "test", "authorized": false}'
-    result = json.loads(chain.handle_request(unauthorized_request))
+    unauthorized_request = {"method": "test", "authorized": False}
+    result = chain.handle_request(unauthorized_request)
     assert result["error"] == "unauthorized"
-    assert downstream.handle_request_calls == 0  # next_mcp was not called
+    assert downstream.handle_request_calls == 0  # next_server was not called
     
     # Test 3: handle_request with authorization - SHOULD call downstream
-    authorized_request = '{"method": "test", "authorized": true}'
-    result = json.loads(chain.handle_request(authorized_request))
+    authorized_request = {"method": "test", "authorized": True}
+    result = chain.handle_request(authorized_request)
     assert result["result"] == "success"
-    assert downstream.handle_request_calls == 1  # next_mcp was called
+    assert downstream.handle_request_calls == 1  # next_server was called
 
 
 def test_request_flow_with_collector():
@@ -246,34 +238,30 @@ def test_request_flow_with_collector():
             self.metadata_calls = []
             self.request_calls = []
             
-        def get_metadata(self) -> str:
+        def get_metadata(self):
             call_info = "get_metadata called"
             self.metadata_calls.append(call_info)
-            return json.dumps({"tools": [{"name": "collector_tool", "description": "original_desc"}]})
+            return {"tools": [{"name": "collector_tool", "description": "original_desc"}]}
             
-        def handle_request(self, request: str) -> str:
-            request_data = json.loads(request)
-            self.request_calls.append(request_data)
-            return json.dumps({"result": "success", "received": request_data})
+        def handle_request(self, request):
+            self.request_calls.append(request)
+            return {"result": "success", "received": request}
     
     # Create transformers
-    def metadata_transformer(next_mcp, json_metadata: str) -> str:
-        # Get metadata from next_mcp
-        original_metadata = next_mcp.get_metadata()
-        data = json.loads(original_metadata)
-        for tool in data.get("tools", []):
+    def metadata_transformer(next_server, metadata_dict):
+        # Get metadata from next_server
+        original_metadata = next_server.get_metadata()
+        for tool in original_metadata.get("tools", []):
             tool["description"] = "middleware_" + tool.get("description", "")
-        return json.dumps(data)
+        return original_metadata
     
-    def request_transformer(next_mcp, json_request: str) -> str:
-        request = json.loads(json_request)
-        request["middleware_added"] = True
+    def request_transformer(next_server, request_dict):
+        request_dict["middleware_added"] = True
         
-        # Get response from next_mcp
-        actual_response = next_mcp.handle_request(json.dumps(request))
-        response = json.loads(actual_response)
-        response["middleware_processed"] = True
-        return json.dumps(response)
+        # Get response from next_server
+        actual_response = next_server.handle_request(request_dict)
+        actual_response["middleware_processed"] = True
+        return actual_response
     
     collector = CollectorServer()
     
@@ -281,7 +269,7 @@ def test_request_flow_with_collector():
     chain = mcp_chain().then(metadata_transformer, request_transformer).then(collector)
     
     # Test metadata flow
-    metadata_result = json.loads(chain.get_metadata())
+    metadata_result = chain.get_metadata()
     
     # Verify metadata was transformed
     assert metadata_result["tools"][0]["description"] == "middleware_original_desc"
@@ -290,8 +278,8 @@ def test_request_flow_with_collector():
     assert len(collector.metadata_calls) == 1
     
     # Test request flow
-    request = '{"method": "test_method", "params": {"key": "value"}}'
-    response_result = json.loads(chain.handle_request(request))
+    request = {"method": "test_method", "params": {"key": "value"}}
+    response_result = chain.handle_request(request)
     
     # Verify request was transformed and reached collector
     assert len(collector.request_calls) == 1
