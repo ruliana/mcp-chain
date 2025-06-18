@@ -13,6 +13,7 @@ wheels/
 # Temporary files and directories for AI
 .env
 TODO.md
+ai/TODO.md
 tmp/
 
 # Byte-compiled / optimized / DLL files

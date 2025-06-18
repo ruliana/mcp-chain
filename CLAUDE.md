@@ -2,6 +2,96 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## AI Memory Management with TODO.md
+
+### TODO.md as AI Memory System
+The `ai/TODO.md` file serves as **persistent memory for multi-phase tasks**:
+- **Cross-Session Context**: Contains all context needed to continue tasks in new sessions
+- **Living Document**: You should actively update it while working
+- **Problem Prevention**: Record issues to avoid repeating mistakes
+- **Phase-Based Structure**: High-level phases with local planning
+- **Learning Integration**: Continuously improve based on experience
+
+### TODO Workflow for AI Assistants
+
+#### 1. Task Initialization
+When user requests a multi-phase task:
+```bash
+# ALWAYS do this first for new long-term tasks
+rm -f ai/TODO.md  # Remove existing TODO if present
+cp ai/TODO_template.md ai/TODO.md  # Create new from template
+# Then customize the template for the specific task
+```
+
+#### 2. Phase Execution Pattern
+**MANDATORY: Create local plan before implementation**
+```markdown
+**Local Plan:** (Create detailed sub-tasks when starting this phase)
+- [ ] Analyze current codebase structure
+- [ ] Identify specific files to modify
+- [ ] Create test cases for new functionality
+- [ ] Implement core changes
+- [ ] Validate implementation
+```
+
+#### 3. Active Updates During Work
+**Update TODO.md frequently:**
+- Mark completed sub-tasks with `[x]`
+- Record any problems encountered in "Problems Encountered & Solutions"
+- Update "Context for Next Session" before ending work
+- Document successful patterns that work well
+- Note any changes to approach or strategy
+
+#### 4. Session Handoff
+**Before ending each session:**
+- Update "Current Status" and "Active Phase"
+- Fill in "Context for Next Session" with essential information
+- Record any unresolved issues in "Problems Encountered"
+- Update "Last Updated" timestamp
+
+### Template Usage Instructions
+
+#### Creating New TODO from Template
+1. **Replace Template Variables**: All `{VARIABLE_NAME}` placeholders with actual values
+2. **Customize Phases**: Adjust phases to match your specific task requirements
+3. **Set Context**: Fill in project-specific commands and background information
+4. **Initialize Status**: Set current phase and status appropriately
+
+#### Template Variables Reference
+- `{PROJECT_NAME}`: Name of the project or task
+- `{TASK_DESCRIPTION}`: Brief description of the overall task
+- `{CURRENT_STATUS}`: Current state (e.g., "Planning", "Phase 2 Implementation")
+- `{CURRENT_PHASE}`: Which phase is currently active
+- `{MAIN_GOAL_DESCRIPTION}`: Primary objective of the task
+- `{PROJECT_SPECIFIC_COMMANDS}`: Relevant commands for this project
+- `{PHASE_N_NAME}`: Name of each phase
+- `{PHASE_N_OBJECTIVE}`: Goal of each phase
+
+### Problem Prevention Guidelines
+
+#### Recording Issues
+When you encounter problems:
+```markdown
+- **Problem:** FastMCP integration failing with dict conversion
+  - **Solution:** Added explicit type conversion in middleware layer
+  - **Lesson:** Always validate data types when bridging different APIs
+```
+
+#### Learning from Success
+When something works well:
+```markdown
+- **Pattern:** Using TDD red-green cycle for API changes
+  - **When to use:** Any time modifying core interfaces or adding new functionality
+```
+
+### Best Practices
+
+1. **Always Create Local Plans**: Never start implementation without breaking down the phase into specific sub-tasks
+2. **Update Frequently**: TODO.md should reflect current state at all times
+3. **Document Problems**: Every issue encountered should be recorded with solution
+4. **Maintain Context**: Each session should end with enough context for easy resumption
+5. **Use Phases Strategically**: Phases should represent logical units of work with clear deliverables
+
 ## Development Commands
 
 ```bash
