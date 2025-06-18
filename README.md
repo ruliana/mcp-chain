@@ -31,6 +31,20 @@ chain = mcp_chain().then(cli_server)
 uvx mcp-chain cli_server.py
 ```
 
+**Example mcp.json:**
+```json
+{
+  "mcpServers": {
+    "ls-tool": {
+      "command": "uvx",
+      "args": ["mcp-chain", "cli_server.py"]
+    }
+  }
+}
+```
+
+
+
 ### Multi-Command CLI Server
 
 Create a server that exposes multiple CLI tools:
@@ -59,6 +73,18 @@ chain = mcp_chain().then(dev_tools)
 uvx mcp-chain dev_tools.py
 ```
 
+**Example mcp.json:**
+```json
+{
+  "mcpServers": {
+    "dev-tools": {
+      "command": "uvx",
+      "args": ["mcp-chain", "dev_tools.py"]
+    }
+  }
+}
+```
+
 ### Simple Proxy
 
 Create a simple proxy to an existing MCP server:
@@ -73,6 +99,18 @@ serve(chain, name="Postgres Proxy")
 
 ```bash
 uvx mcp-chain simple_proxy.py
+```
+
+**Example mcp.json:**
+```json
+{
+  "mcpServers": {
+    "postgres-proxy": {
+      "command": "uvx",
+      "args": ["mcp-chain", "simple_proxy.py"]
+    }
+  }
+}
 ```
 
 ### Add Authentication
@@ -99,6 +137,21 @@ serve(chain, name="Authenticated Postgres")
 uvx mcp-chain auth_proxy.py
 ```
 
+**Example mcp.json:**
+```json
+{
+  "mcpServers": {
+    "authenticated-postgres": {
+      "command": "uvx",
+      "args": ["mcp-chain", "auth_proxy.py"],
+      "env": {
+        "AUTH_TOKEN": "your-auth-token-here"
+      }
+    }
+  }
+}
+```
+
 ### CLI Server with Authentication
 
 Add authentication to a CLI server:
@@ -122,6 +175,21 @@ chain = (mcp_chain()
 
 ```bash
 uvx mcp-chain auth_cli.py
+```
+
+**Example mcp.json:**
+```json
+{
+  "mcpServers": {
+    "secure-ls": {
+      "command": "uvx",
+      "args": ["mcp-chain", "auth_cli.py"],
+      "env": {
+        "AUTH_TOKEN": "your-auth-token-here"
+      }
+    }
+  }
+}
 ```
 
 ### Add Request Logging
@@ -151,6 +219,18 @@ serve(chain, name="Logged Postgres")
 
 ```bash
 uvx mcp-chain logging_proxy.py
+```
+
+**Example mcp.json:**
+```json
+{
+  "mcpServers": {
+    "logged-postgres": {
+      "command": "uvx",
+      "args": ["mcp-chain", "logging_proxy.py"]
+    }
+  }
+}
 ```
 
 ### Transform Tool Descriptions
