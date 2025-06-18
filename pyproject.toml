@@ -1,6 +1,6 @@
 [project]
 name = "mcp-chain"
-version = "0.1.2"
+version = "0.1.3"
 description = "An MCP server proxy with to modify and enrich calls to other MCP servers"
 readme = "README.md"
 authors = [
