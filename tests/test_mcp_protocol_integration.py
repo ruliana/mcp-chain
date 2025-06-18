@@ -199,8 +199,8 @@ class MCPProtocolClient:
 def start_mcp_server() -> subprocess.Popen:
     """Start the MCP chain server subprocess."""
     logger.info("Starting MCP chain server...")
-    
-    server_script = project_root / "mcp_chain_server.py"
+
+    server_script = project_root / "examples" / "protocol_testing_server.py"
     if not server_script.exists():
         raise FileNotFoundError(f"Server script not found: {server_script}")
     

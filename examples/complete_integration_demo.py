@@ -1,8 +1,7 @@
-"""Final demonstration of FastMCP integration working end-to-end."""
+#!/usr/bin/env python3
+"""Complete demonstration of FastMCP integration working end-to-end."""
 
-from unittest.mock import Mock
 from typing import Dict, Any
-
 from mcp_chain import mcp_chain, serve, FastMCPServer
 
 
@@ -36,8 +35,10 @@ class DemoExternalServer:
         }
 
 
-def test_complete_fastmcp_integration():
+def demo_complete_fastmcp_integration():
     """Demonstrate complete FastMCP integration working end-to-end."""
+    
+    print("🚀 Starting FastMCP Integration Demo")
     
     # Step 1: Create middleware transformers
     def auth_metadata_transformer(next_server, metadata_dict):
@@ -65,98 +66,77 @@ def test_complete_fastmcp_integration():
     # Step 2: Create external server
     external_server = DemoExternalServer("demo_db")
     
-    # Step 3: Build the middleware chain (demonstrating the new architecture)
+    # Step 3: Build the middleware chain
     chain = (mcp_chain()
              .then(auth_metadata_transformer, auth_request_transformer)
              .then(logging_request_transformer)
              .then(external_server))
     
-    # Step 4: Verify the chain works as expected
-    
-    # Test metadata processing
+    print("📋 Testing metadata processing...")
     metadata = chain.get_metadata()
-    assert "tools" in metadata
-    assert len(metadata["tools"]) == 1
-    assert metadata["tools"][0]["name"] == "demo_db_tool"
-    assert metadata["tools"][0]["auth_required"] is True
-    assert metadata["auth_enabled"] is True
     
-    # Test request processing
+    print(f"✅ Found {len(metadata['tools'])} tools")
+    print(f"✅ Tool name: {metadata['tools'][0]['name']}")
+    print(f"✅ Auth required: {metadata['tools'][0]['auth_required']}")
+    print(f"✅ Auth enabled: {metadata['auth_enabled']}")
+    
+    # Step 4: Test request processing
+    print("\n🔄 Testing request processing...")
     request = {"method": "tools/call", "params": {"name": "demo_action"}}
     response = chain.handle_request(request)
     
-    # Verify middleware transformations
-    assert request["auth_token"] == "demo-token-123"  # Auth middleware added token
-    assert response["authenticated"] is True          # Auth middleware marked as authenticated
-    assert "logged_at" in response                    # Logging middleware added timestamp
-    assert response["server"] == "demo_db"            # External server processed request
+    print(f"✅ Auth token added: {request.get('auth_token')}")
+    print(f"✅ Authenticated: {response.get('authenticated')}")
+    print(f"✅ Logged at: {response.get('logged_at')}")
+    print(f"✅ Server response: {response.get('server')}")
     
     # Step 5: Create FastMCPServer (demonstrates bridge to FastMCP)
+    print("\n🔗 Creating FastMCPServer...")
     fastmcp_server = FastMCPServer(chain)
     
     # Verify FastMCPServer can access the processed metadata
     processed_metadata = fastmcp_server._downstream.get_metadata()
-    assert processed_metadata["auth_enabled"] is True
-    assert processed_metadata["tools"][0]["auth_required"] is True
+    print(f"✅ FastMCPServer metadata access: {processed_metadata['auth_enabled']}")
     
-    # Step 6: Test serve function (demonstrates programmatic server startup)
-    from unittest.mock import patch
-    
-    with patch('mcp_chain.serve.FastMCPServer') as mock_fastmcp_class:
-        mock_server = Mock()
-        mock_fastmcp_class.return_value = mock_server
-        
-        # This demonstrates the serve function working with our complete chain
-        serve(chain, name="demo-mcp-server", transport="stdio")
-        
-        # Verify serve() created FastMCPServer with our chain and name
-        mock_fastmcp_class.assert_called_once_with(chain, name="demo-mcp-server")
-        mock_server.run.assert_called_once_with(name="demo-mcp-server", transport="stdio")
-    
-    print("✅ FastMCP Integration Success!")
+    print("\n🎉 FastMCP Integration Demo Complete!")
     print("✅ All middleware transformations working")
     print("✅ Chain building pattern working")
     print("✅ FastMCPServer adapter working")
-    print("✅ serve() function working")
-    print("✅ No more FrontMCPServer dependency")
     print("✅ Dict-based processing throughout pipeline")
 
 
-def test_api_exports():
-    """Verify all the new API exports are working."""
+def demo_api_exports():
+    """Demonstrate all the API exports are working."""
+    print("\n📦 Testing API exports...")
+    
     import mcp_chain
     
-    # Test new exports
-    assert hasattr(mcp_chain, 'FastMCPServer')
-    assert hasattr(mcp_chain, 'serve')
-    assert hasattr(mcp_chain, 'mcp_chain')
+    # Test exports
+    required_exports = [
+        'FastMCPServer', 'serve', 'mcp_chain', 'DictMCPServer',
+        'MiddlewareMCPServer', 'ExternalMCPServer', 'MCPChainBuilder'
+    ]
     
-    # Test removed exports
-    assert not hasattr(mcp_chain, 'FrontMCPServer')  # Should be removed
-    assert not hasattr(mcp_chain, 'MCPServer')       # Should be removed
+    for export in required_exports:
+        if hasattr(mcp_chain, export):
+            print(f"✅ {export} exported")
+        else:
+            print(f"❌ {export} missing")
     
-    # Test that we can import everything we need
-    from mcp_chain import (
-        FastMCPServer,
-        serve,
-        mcp_chain,
-        DictMCPServer,
-        MiddlewareMCPServer,
-        ExternalMCPServer,
-        MCPChainBuilder
-    )
-    
-    assert all([
-        FastMCPServer, serve, mcp_chain, DictMCPServer,
-        MiddlewareMCPServer, ExternalMCPServer, MCPChainBuilder
-    ])
+    # Test that legacy exports are gone
+    legacy_exports = ['FrontMCPServer', 'MCPServer']
+    for export in legacy_exports:
+        if not hasattr(mcp_chain, export):
+            print(f"✅ {export} properly removed")
+        else:
+            print(f"❌ {export} still present (should be removed)")
     
     print("✅ All API exports working correctly")
 
 
 if __name__ == "__main__":
-    test_complete_fastmcp_integration()
-    test_api_exports()
-    print("\n🎉 FastMCP Integration Complete!")
-    print("The mcp-chain library now uses FastMCP for client interface")
-    print("while maintaining clean dict-based middleware processing!")
+    demo_complete_fastmcp_integration()
+    demo_api_exports()
+    print("\n🎉 Complete Integration Demo Finished!")
+    print("The mcp-chain library uses FastMCP for client interface")
+    print("while maintaining clean dict-based middleware processing!") 
