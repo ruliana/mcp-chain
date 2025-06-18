@@ -12,8 +12,8 @@ def test_mcp_chain_returns_builder_directly():
     # Should return MCPChainBuilder directly
     assert isinstance(chain, MCPChainBuilder)
     
-    # Should not be wrapped in FrontMCPServer
-    assert not hasattr(chain, '_downstream'), "Should not be wrapped in FrontMCPServer"
+    # Should not be wrapped in a proxy
+    assert not hasattr(chain, '_downstream'), "Should not be wrapped in a proxy"
 
 
 def test_mcp_chain_builder_has_dict_interface():
@@ -61,6 +61,6 @@ def test_chain_building_still_works():
     # This should work and return a MiddlewareMCPServer
     chain = mcp_chain().then(simple_metadata_transformer, simple_request_transformer)
     
-    # Should be a MiddlewareMCPServer, not wrapped in FrontMCPServer
+    # Should be a MiddlewareMCPServer
     from mcp_chain.middleware import MiddlewareMCPServer
     assert isinstance(chain, MiddlewareMCPServer)

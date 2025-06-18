@@ -84,7 +84,7 @@ class MCPProtocolClient:
     def __init__(self, server_process: subprocess.Popen):
         self.process = server_process
         self.message_id = 0
-        self.protocol_version = "2025-03-26"  # Updated to current protocol version
+        self.protocol_version = "2025-03-26"
         
     def _next_id(self) -> int:
         """Get next message ID."""
@@ -661,10 +661,8 @@ def test_mcp_protocol_complete_flow():
                 logger.error(f"Error terminating server: {e}")
 
 
-# Legacy function for backwards compatibility
 def run_mcp_protocol_test():
-    """Legacy function - now use pytest instead."""
-    logger.warning("This function is deprecated. Use 'pytest tests/test_mcp_protocol_integration.py::test_mcp_protocol_complete_flow -v' instead")
+    """Run the MCP protocol integration test."""
     return test_mcp_protocol_complete_flow()
 
 

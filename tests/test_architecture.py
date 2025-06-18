@@ -8,7 +8,7 @@ def test_mcp_chain_initial_architecture():
     
     chain = mcp_chain()
     
-    # Should be MCPChainBuilder directly (no FrontMCPServer wrapper)
+    # Should be MCPChainBuilder directly
     assert isinstance(chain, MCPChainBuilder)
 
 
@@ -226,8 +226,8 @@ def test_complete_architecture_with_multiple_middlewares():
     metadata = complete_chain.get_metadata()
     assert isinstance(metadata, dict)
     
-    assert metadata["logged"] is True  # Added by logging middleware
-    assert metadata["tools"][0]["auth_required"] is True  # Added by auth middleware
+    assert metadata["logged"] is True
+    assert metadata["tools"][0]["auth_required"] is True
     assert metadata["tools"][0]["name"] == "calc"  # From external server
     
     # Test end-to-end request flow
@@ -238,8 +238,8 @@ def test_complete_architecture_with_multiple_middlewares():
     # Verify the response has markers from all layers
     assert response["result"] == "external_response"  # From external server
     assert response["server"] == "external"  # From external server
-    assert response["authenticated"] is True  # Added by auth middleware
-    assert response["response_logged"] is True  # Added by logging middleware
+    assert response["authenticated"] is True
+    assert response["response_logged"] is True
     
     # Verify the request was properly transformed through all layers
     assert response["method"] == "calc"  # Original method preserved

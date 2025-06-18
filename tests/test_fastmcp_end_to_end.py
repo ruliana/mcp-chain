@@ -66,7 +66,7 @@ def test_fastmcp_integration_with_middleware_chain():
              .then(logging_request_transformer)
              .then(external_server))
     
-    # Verify the chain is a DictMCPServer (not wrapped in FrontMCPServer)
+    # Verify the chain is a DictMCPServer
     assert hasattr(chain, 'get_metadata')
     assert hasattr(chain, 'handle_request')
     
