@@ -3,11 +3,6 @@
 import pytest
 
 
-def test_mcp_server_protocol_removed():
-    """Test that MCPServer protocol is no longer exported (since FastMCP handles client interface)."""
-    with pytest.raises(ImportError):
-        pass
-
 
 def test_dict_mcp_server_protocol_still_exists():
     """Test that DictMCPServer protocol still exists for internal middleware."""

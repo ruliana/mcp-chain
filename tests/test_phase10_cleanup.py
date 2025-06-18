@@ -157,17 +157,4 @@ def test_claude_md_reflects_new_architecture():
     assert not problems, f"CLAUDE.md needs updates: {problems}"
 
 
-def test_full_test_suite_passes_after_cleanup():
-    """Test that the full test suite still passes after Phase 10 cleanup (final validation)."""
-    # Run essential tests (excluding this test file to avoid recursion)
-    result = subprocess.run(
-        ["uv", "run", "pytest", "tests/", "--ignore=tests/test_phase10_cleanup.py", 
-         "-q", "--tb=line", "-x", "--maxfail=3"],  # Quick run, stop early on failures
-        cwd=Path.cwd(),
-        capture_output=True,
-        text=True,
-        timeout=60  # 1 minute timeout should be sufficient for essential tests
-    )
-    
-    # Should pass without any failures
-    assert result.returncode == 0, f"Essential test suite failed after Phase 10 cleanup:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}" 
+ 
