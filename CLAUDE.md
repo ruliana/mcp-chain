@@ -24,7 +24,7 @@ uv build
 ## MANDATORY Development Process
 
 **MUST use TDD red-green cycle for ANY change:**
-1. Write a failing test (red)
+1. Write a, and just one, failing test (red)
 2. Implement minimal code to make it pass (green)
 3. Refactor if needed (still green)
 4. Repeat for next change
@@ -68,24 +68,39 @@ Client → FastMCP → FastMCPServer → MiddlewareMCPServer₁ → MiddlewareMC
 - **FastMCP Integration**: Bridges dict-based internal processing with MCP protocol compliance
 
 ### Transformer Architecture
-Transformers receive `next_mcp` as first parameter and control when/if to call downstream:
+Transformers receive `next_server` as first parameter and control when/if to call downstream:
 
 ```python
-def metadata_transformer(next_mcp, json_metadata: str) -> str:
-    # Note: json_metadata can communicate with downstream middleware
-    original_metadata = next_mcp.get_metadata()
+from typing import Dict, Any
+
+def metadata_transformer(next_server, metadata_dict: Dict[str, Any]) -> Dict[str, Any]:
+    # Get metadata from downstream server and transform it
+    original_metadata = next_server.get_metadata()
     return transform(original_metadata)
 
-def request_transformer(next_mcp, json_request: str) -> str:
+def request_transformer(next_server, request_dict: Dict[str, Any]) -> Dict[str, Any]:
     # Transform request, forward to downstream, transform response
-    modified_request = transform_request(json_request)
-    response = next_mcp.handle_request(modified_request)
+    modified_request = transform_request(request_dict)
+    response = next_server.handle_request(modified_request)
     return transform_response(response)
 ```
 
 ### Chain Building Pattern
 ```python
 from mcp_chain import mcp_chain, serve
+from typing import Dict, Any
+
+# Define transformers with correct dict-based signatures
+def metadata_transformer(next_server, metadata_dict: Dict[str, Any]) -> Dict[str, Any]:
+    metadata = next_server.get_metadata()
+    # Transform metadata...
+    return metadata
+
+def request_transformer(next_server, request_dict: Dict[str, Any]) -> Dict[str, Any]:
+    # Transform request if needed
+    response = next_server.handle_request(request_dict)
+    # Transform response if needed
+    return response
 
 # Build middleware chain
 chain = (mcp_chain()
