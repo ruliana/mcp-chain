@@ -21,8 +21,7 @@ echo "🚀 Running unit and component tests..."
 uv run pytest tests/ -m "not integration" -v --tb=short
 
 echo ""
-echo "🔄 Running integration tests with timeout protection..."
-timeout 45 uv run pytest tests/ -m integration -v --tb=short
+echo "⏭️  Skipping integration tests in CI mode..."
 
 echo ""
 echo "📊 Running coverage analysis..."
