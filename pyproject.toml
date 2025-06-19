@@ -3,10 +3,20 @@ name = "mcp-chain"
 version = "0.1.8"
 description = "An MCP server proxy with to modify and enrich calls to other MCP servers"
 readme = "README.md"
+license = { file = "LICENSE" }
 authors = [
     { name = "Ronie Uliana", email = "ronie.uliana@gmail.com" }
 ]
 requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "pytest>=8.4.0",
     "mcp>=1.2.0",
