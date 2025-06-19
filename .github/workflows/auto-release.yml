@@ -19,27 +19,36 @@ jobs:
     - name: Check if version changed
       id: version-check
       run: |
+        echo "=== Checking for version changes ==="
+        
         # Get current version from pyproject.toml
         CURRENT_VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
         echo "Current version: $CURRENT_VERSION"
         
+        # Check what files changed in this commit
+        echo "Files changed in this commit:"
+        git diff HEAD~1 HEAD --name-only
+        
         # Get previous version (if pyproject.toml was changed)
         if git diff HEAD~1 HEAD --name-only | grep -q "pyproject.toml"; then
+          echo "pyproject.toml was changed in this commit"
           PREVIOUS_VERSION=$(git show HEAD~1:pyproject.toml | grep '^version = ' | sed 's/version = "\(.*\)"/\1/')
           echo "Previous version: $PREVIOUS_VERSION"
           
           if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
-            echo "Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
+            echo "✅ Version changed from $PREVIOUS_VERSION to $CURRENT_VERSION"
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           else
-            echo "Version not changed"
+            echo "❌ Version not changed (both are $CURRENT_VERSION)"
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
         else
-          echo "pyproject.toml not changed in this commit"
+          echo "❌ pyproject.toml not changed in this commit"
           echo "changed=false" >> $GITHUB_OUTPUT
         fi
+        
+        echo "=== End version check ==="
 
   create-release:
     needs: check-version
@@ -53,16 +62,31 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         VERSION: ${{ needs.check-version.outputs.new-version }}
       run: |
+        echo "Creating release for version: $VERSION"
+        
+        # Check if gh is working
+        gh auth status
+        
         # Generate release notes from commit messages since last tag
         LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+        echo "Last tag: $LAST_TAG"
+        
         if [ -n "$LAST_TAG" ]; then
-          RELEASE_NOTES=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          RELEASE_NOTES=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges | head -20)
         else
           RELEASE_NOTES=$(git log --pretty=format:"- %s" --no-merges -10)
         fi
         
+        echo "Release notes preview:"
+        echo "$RELEASE_NOTES"
+        
         # Create the release
+        echo "Creating release v${VERSION}..."
         gh release create "v${VERSION}" \
           --title "Release v${VERSION}" \
-          --notes "${RELEASE_NOTES}" \
-          --generate-notes 
+          --notes "$RELEASE_NOTES" || {
+          echo "Failed to create release, trying with minimal notes..."
+          gh release create "v${VERSION}" \
+            --title "Release v${VERSION}" \
+            --notes "Automated release for version ${VERSION}"
+        } 
