@@ -1,6 +1,6 @@
 [project]
 name = "mcp-chain"
-version = "0.1.8"
+version = "0.1.9"
 description = "An MCP server proxy with to modify and enrich calls to other MCP servers"
 readme = "README.md"
 license = { file = "LICENSE" }
