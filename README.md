@@ -1,5 +1,12 @@
 # MCP Chain
 
+[![CI](https://github.com/ruliana/mcp-chain/actions/workflows/python-package.yml/badge.svg)](https://github.com/ruliana/mcp-chain/actions/workflows/python-package.yml)
+[![codecov](https://codecov.io/gh/ruliana/mcp-chain/branch/main/graph/badge.svg)](https://codecov.io/gh/ruliana/mcp-chain)
+[![PyPI version](https://badge.fury.io/py/mcp-chain.svg)](https://badge.fury.io/py/mcp-chain)
+[![GitHub release](https://img.shields.io/github/release/ruliana/mcp-chain.svg)](https://github.com/ruliana/mcp-chain/releases)
+[![Python versions](https://img.shields.io/pypi/pyversions/mcp-chain.svg)](https://pypi.org/project/mcp-chain/)
+[![License](https://img.shields.io/github/license/ruliana/mcp-chain.svg)](https://github.com/ruliana/mcp-chain/blob/main/LICENSE)
+
 A composable middleware framework for building MCP server chains, inspired by Ruby Rack. MCP Chain lets you create transparent proxies that sit between MCP clients and servers, transforming requests and responses using Python functions.
 
 MCP Chain solves the problem of adding cross-cutting concerns (authentication, logging, request transformation) to existing MCP servers without modifying them. It uses a transparent proxy pattern where each middleware layer appears as a standard MCP server to clients while forwarding requests to downstream servers. Middleware can also orchestrate multiple MCP calls behind the scenes using AI, transforming granular APIs into intelligent MCPs that perform complex multi-step tasks.
