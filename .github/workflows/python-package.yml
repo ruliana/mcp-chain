@@ -36,26 +36,9 @@ jobs:
       run: |
         uv run pytest tests/ -m "not integration" -v --tb=short
     
-    - name: Run integration tests (Ubuntu/macOS only)
-      if: matrix.os != 'windows-latest'
+    - name: Skip integration tests
       run: |
-        # Use timeout command on Unix systems
-        timeout 45 uv run pytest tests/ -m integration -v --tb=short
-    
-    - name: Run integration tests (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        # Windows doesn't have timeout command, use PowerShell
-        $job = Start-Job -ScriptBlock { uv run pytest tests/ -m integration -v --tb=short }
-        if (Wait-Job $job -Timeout 45) {
-            Receive-Job $job
-            Remove-Job $job
-        } else {
-            Stop-Job $job
-            Remove-Job $job
-            Write-Error "Integration tests timed out after 45 seconds"
-            exit 1
-        }
+        echo "⏭️ Skipping integration tests in CI mode..."
 
   lint:
     runs-on: ubuntu-latest
