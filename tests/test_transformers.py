@@ -1,6 +1,5 @@
 """Tests for transformer functionality in MCP Chain."""
 
-import json
 import pytest
 
 

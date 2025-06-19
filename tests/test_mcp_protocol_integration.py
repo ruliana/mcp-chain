@@ -18,7 +18,6 @@ import time
 import logging
 import subprocess
 import pytest
-import signal
 import select
 from pathlib import Path
 from datetime import datetime
