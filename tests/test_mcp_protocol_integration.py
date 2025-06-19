@@ -19,6 +19,7 @@ import logging
 import subprocess
 import pytest
 import select
+import tempfile
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -26,8 +27,8 @@ import jsonschema
 
 # Setup
 project_root = Path(__file__).parent.parent.absolute()
-log_dir = Path("/tmp/mcp_chain_integration")
-log_dir.mkdir(exist_ok=True, mode=0o755)
+log_dir = Path(tempfile.gettempdir()) / "mcp_chain_integration"
+log_dir.mkdir(exist_ok=True, parents=True)
 
 # Configure logging
 logging.basicConfig(
