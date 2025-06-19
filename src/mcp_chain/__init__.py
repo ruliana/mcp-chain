@@ -30,19 +30,17 @@ def mcp_chain():
 # Export public API
 __all__ = [
     # Core types and protocols
-    "DictMCPServer", 
+    "DictMCPServer",
     "DictMetadataTransformer",
     "DictRequestResponseTransformer",
     "MetadataTransformer",
     "RequestResponseTransformer",
-    
     # Core classes
     "FastMCPServer",
     "MiddlewareMCPServer",
     "ExternalMCPServer",
     "CLIMCPServer",
     "MCPChainBuilder",
-    
     # Functions
     "mcp_chain",
     "serve",
