@@ -282,8 +282,6 @@ timeout 45 uv run pytest tests/ -v
 ./scripts/test-ci.sh
 ```
 
-**Test Coverage**: 146 tests total (141 unit/component tests, 5 integration tests)
-
 ### Publishing
 
 ```bash
